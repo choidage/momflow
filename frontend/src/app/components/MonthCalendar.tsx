@@ -1,0 +1,168 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { RoutineItem } from "./RoutineView";
+
+interface MonthCalendarProps {
+  todos: Array<{
+    id: string;
+    title: string;
+    time: string;
+    duration: number;
+    completed: boolean;
+    category: string;
+    date?: string;
+  }>;
+  routines?: RoutineItem[]; // Added routines prop
+  onDateSelect?: (date: string) => void;
+}
+
+export function MonthCalendar({ todos, routines = [], onDateSelect }: MonthCalendarProps) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [hoveredDate, setHoveredDate] = useState<number | null>(null);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startingDayOfWeek = firstDay.getDay();
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const today = new Date();
+  const isToday = (day: number) => {
+    return (
+      day === today.getDate() &&
+      month === today.getMonth() &&
+      year === today.getFullYear()
+    );
+  };
+
+  const getEventsForDay = (day: number) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dateObj = new Date(year, month, day);
+    const dayOfWeek = dateObj.getDay();
+
+    // 1. Todos
+    const dayTodos = todos
+      .filter((todo) => todo.date === dateStr)
+      .map(t => ({ title: t.title, type: 'todo' })); // You might want color from category here if available
+
+    // 2. Routines (Active on this day of week)
+    const dayRoutines = routines
+      .filter(routine => routine.timeSlots.some(slot => slot.day === dayOfWeek))
+      .map(r => ({ title: r.name, type: 'routine' }));
+
+    return [...dayTodos, ...dayRoutines];
+  };
+
+  const days = [];
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    days.push(<div key={`empty-${i}`} className="aspect-square" />);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const events = getEventsForDay(day);
+    const hasEvent = events.length > 0;
+    const isTodayDate = isToday(day);
+
+    days.push(
+      <button
+        key={day}
+        onClick={() => {
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          onDateSelect?.(dateStr);
+        }}
+        onMouseEnter={() => setHoveredDate(day)}
+        onMouseLeave={() => setHoveredDate(null)}
+        className={`aspect-square flex flex-col items-center justify-center rounded-lg relative transition-all hover:bg-[#FFF0EB] ${isTodayDate
+          ? "bg-[#FF9B82] text-white font-bold"
+          : "text-[#1F2937]"
+          }`}
+      >
+        <span className="text-sm">{day}</span>
+        {hasEvent && !isTodayDate && (
+          <div className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-[#EF4444] rounded-full" />
+        )}
+        {hasEvent && isTodayDate && (
+          <div className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-white rounded-full" />
+        )}
+
+        {/* Tooltip */}
+        {hoveredDate === day && hasEvent && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-32 bg-white/95 backdrop-blur-sm border border-[#FFD4C8] rounded-lg shadow-xl z-50 overflow-hidden text-left pointer-events-none fade-in-scale">
+            <div className="bg-[#FFF0EB] px-2 py-1 border-b border-[#FFD4C8]">
+              <span className="text-[10px] font-bold text-[#FF9B82]">{month + 1}월 {day}일</span>
+            </div>
+            <div className="p-1.5 space-y-0.5">
+              {events.slice(0, 3).map((e, i) => (
+                <div key={i} className="text-[10px] text-[#4B5563] truncate flex items-center gap-1">
+                  <span className={`w-1 h-1 rounded-full ${e.type === 'todo' ? 'bg-[#3B82F6]' : 'bg-[#10B981]'}`}></span>
+                  {e.title}
+                </div>
+              ))}
+              {events.length > 3 && (
+                <div className="text-[9px] text-[#9CA3AF] pl-2">+ {events.length - 3}건 더보기</div>
+              )}
+            </div>
+          </div>
+        )}
+      </button>
+    );
+  }
+
+  const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+
+  return (
+    <div className="bg-white">
+      {/* Calendar Header */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-[#F3F4F6]">
+        <button
+          onClick={prevMonth}
+          className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
+        >
+          <ChevronLeft size={20} className="text-[#6B7280]" />
+        </button>
+        <h2 className="font-semibold text-[#1F2937]">
+          {year}년 {month + 1}월
+        </h2>
+        <button
+          onClick={nextMonth}
+          className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
+        >
+          <ChevronRight size={20} className="text-[#6B7280]" />
+        </button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="px-4 py-3">
+        {/* Week days */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {weekDays.map((day, index) => (
+            <div
+              key={day}
+              className={`text-center text-xs font-medium py-2 ${index === 0
+                ? "text-[#EF4444]"
+                : index === 6
+                  ? "text-[#3B82F6]"
+                  : "text-[#6B7280]"
+                }`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Days grid */}
+        <div className="grid grid-cols-7 gap-1">{days}</div>
+      </div>
+    </div>
+  );
+}

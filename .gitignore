@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+backend/venv/
+venv/
+.python-version
+
+# Environment Variables
+.env
+.env*
+*.env
+*.env*
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Build Outputs
+dist/
+build/
+*.pyc
+__pycache__/
+
+# IDEs
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
