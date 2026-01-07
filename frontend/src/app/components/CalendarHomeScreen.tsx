@@ -87,6 +87,9 @@ export function CalendarHomeScreen() {
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   // 체크리스트 항목 상태 관리 (id별로 completed 상태 저장)
   const [checklistItemStates, setChecklistItemStates] = useState<Record<string, Record<string, boolean>>>({});
+  // 검색 기능
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
 
   const handleFabMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -653,6 +656,49 @@ export function CalendarHomeScreen() {
 
   const [todos, setTodos] = useState<TodoItem[]>([]);
 
+  // 검색 로직: 일정 이름, 메모, 체크리스트, 장소 검색
+  const filteredTodos = searchQuery.trim()
+    ? todos.filter((todo) => {
+      const query = searchQuery.toLowerCase();
+      // 일정 이름 검색
+      const titleMatch = todo.title?.toLowerCase().includes(query);
+      // 메모 검색
+      const memoMatch = todo.memo?.toLowerCase().includes(query);
+      // 장소 검색
+      const locationMatch = todo.location?.toLowerCase().includes(query);
+      // 체크리스트 검색
+      const checklistMatch = todo.checklistItems?.some((item) =>
+        item.toLowerCase().includes(query)
+      );
+      // 카테고리 검색
+      const categoryMatch = todo.category?.toLowerCase().includes(query);
+
+      return titleMatch || memoMatch || locationMatch || checklistMatch || categoryMatch;
+    })
+    : [];
+
+  // 검색어 변경 핸들러
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    setShowSearchResults(value.trim().length > 0);
+  };
+
+  // 검색창 포커스 핸들러
+  const handleSearchFocus = () => {
+    if (searchQuery.trim().length > 0) {
+      setShowSearchResults(true);
+    }
+  };
+
+  // 검색창 블러 핸들러
+  const handleSearchBlur = () => {
+    // 약간의 지연을 두어 클릭 이벤트가 먼저 처리되도록 함
+    setTimeout(() => {
+      setShowSearchResults(false);
+    }, 200);
+  };
+
   const handleBack = () => {
     window.location.reload();
   };
@@ -1154,11 +1200,107 @@ export function CalendarHomeScreen() {
         >
           <span className="text-xl">{selectedEmoji}</span>
         </button>
-        <input
-          type="text"
-          placeholder="검색"
-          className="flex-1 px-4 py-2 bg-[#F9FAFB] rounded-full text-sm text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:bg-white transition-all"
-        />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="일정을 검색해주세요."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
+            className="w-full px-4 py-2 bg-[#F9FAFB] rounded-full text-sm text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:bg-white transition-all"
+          />
+
+          {/* 검색 결과 드롭다운 */}
+          {showSearchResults && filteredTodos.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 max-h-[400px] overflow-y-auto">
+              <div className="p-2">
+                <div className="text-xs text-[#9CA3AF] px-3 py-2 font-medium">
+                  검색 결과 ({filteredTodos.length}개)
+                </div>
+                <div className="space-y-1">
+                  {filteredTodos.map((todo) => (
+                    <div
+                      key={todo.id}
+                      onClick={() => {
+                        setSelectedTodoForDetail(todo.id);
+                        setShowSearchResults(false);
+                        setSearchQuery("");
+                      }}
+                      className="px-3 py-3 rounded-lg hover:bg-[#F9FAFB] cursor-pointer transition-colors border-b border-[#F3F4F6] last:border-b-0"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className={`font-medium text-sm ${todo.completed ? "line-through text-[#9CA3AF]" : "text-[#1F2937]"}`}>
+                              {todo.title}
+                            </h4>
+                            {todo.completed && (
+                              <Check size={14} className="text-[#10B981] flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-[#6B7280] mb-1">
+                            {todo.date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar size={12} />
+                                {new Date(todo.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                            {todo.startTime && (
+                              <span className="flex items-center gap-1">
+                                <Clock size={12} />
+                                {todo.startTime}
+                              </span>
+                            )}
+                            {todo.category && (
+                              <span className={`px-2 py-0.5 rounded text-xs ${getCategoryColor(todo.category)}`}>
+                                {todo.category}
+                              </span>
+                            )}
+                          </div>
+                          {todo.location && (
+                            <div className="flex items-center gap-1 text-xs text-[#6B7280] mb-1">
+                              <MapPin size={12} />
+                              <span className="truncate">{todo.location}</span>
+                            </div>
+                          )}
+                          {todo.memo && (
+                            <p className="text-xs text-[#6B7280] line-clamp-2 mt-1">
+                              {todo.memo}
+                            </p>
+                          )}
+                          {todo.checklistItems && todo.checklistItems.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {todo.checklistItems.slice(0, 3).map((item, index) => (
+                                <span key={index} className="text-xs text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded">
+                                  {item}
+                                </span>
+                              ))}
+                              {todo.checklistItems.length > 3 && (
+                                <span className="text-xs text-[#9CA3AF]">
+                                  +{todo.checklistItems.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 검색 결과 없음 */}
+          {showSearchResults && searchQuery.trim().length > 0 && filteredTodos.length === 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 p-4">
+              <div className="text-center text-sm text-[#9CA3AF]">
+                검색 결과가 없습니다.
+              </div>
+            </div>
+          )}
+        </div>
         <button className="p-2 flex-shrink-0" onClick={() => setShowNotificationPanel(true)}>
           <Bell size={20} className="text-[#6B7280]" />
         </button>
