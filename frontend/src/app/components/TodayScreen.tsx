@@ -42,7 +42,7 @@ export function TodayScreen() {
     const loadTodos = async () => {
       try {
         // /todos/today 엔드포인트 사용 (오늘 할 일만 조회)
-        const response = await apiClient.client.get('/todos/today');
+        const response = await apiClient.getTodosToday();
         console.log('Todos loaded:', response.data);
         // API 응답 형식에 맞게 처리
         if (response.data && Array.isArray(response.data)) {

@@ -96,11 +96,11 @@ momflow/
 
 ```bash
 # 1. 가상환경 활성화
-cd C:\Users\USER\OneDrive\Desktop\ainote
-.\venv\Scripts\Activate.ps1
+python3 -m venv .venv
+source .venv/bin/activate
 
 # 2. backend 폴더로 이동
-cd momflow\backend
+cd \backend
 
 # 3. FastAPI 서버 시작
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
@@ -122,7 +122,7 @@ curl http://127.0.0.1:8000/health
 
 ```bash
 # 1. 새 터미널에서 frontend 폴더로 이동
-cd C:\Users\USER\OneDrive\Desktop\ainote\momflow\frontend
+cd \frontend
 
 # 2. 패키지 설치 (처음 1회만)
 npm install
@@ -145,7 +145,7 @@ pnpm dev
 ### 통합 테스트 실행
 
 ```bash
-cd momflow\backend
+cd \backend
 python test_integration.py
 ```
 

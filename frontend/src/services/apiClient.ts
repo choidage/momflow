@@ -112,6 +112,13 @@ class APIClient {
     })
   }
 
+  /**
+   * 오늘 할 일 조회
+   */
+  async getTodosToday() {
+    return this.client.get('/todos/today')
+  }
+
   async getTodo(id: string) {
     return this.client.get(`/todos/${id}`)
   }
