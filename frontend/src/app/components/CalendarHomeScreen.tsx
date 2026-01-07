@@ -1415,7 +1415,7 @@ export function CalendarHomeScreen() {
       {activeTab === "routine" && (
         <div className="bg-white px-4 pt-6 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-[#1F2937]">시간표</h4>
+            <h4 className="font-semibold text-[#1F2937]">프로필 선택</h4>
             <button
               onClick={() => setShowMemberAddSheet(true)}
               className="px-3 py-1.5 text-sm font-medium bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] transition-colors flex items-center gap-1"

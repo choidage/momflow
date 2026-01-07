@@ -391,14 +391,14 @@ export function RoutineView({
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-semibold text-[#1F2937] px-1">시간표 항목</h4>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-[#FF9B82] scrollbar-track-[#F3F4F6]">
           {routines
             .filter(r => selectedMemberIds.includes(r.memberId))
             .map((routine) => (
               <button
                 key={routine.id}
                 onClick={() => handleEditClick(routine)}
-                className="px-3 py-2 rounded-full text-sm font-medium text-white shadow-sm flex items-center gap-1 hover:opacity-90 transition-opacity"
+                className="px-3 py-2 rounded-full text-sm font-medium text-white shadow-sm flex items-center gap-1 hover:opacity-90 transition-opacity flex-shrink-0"
                 style={{ backgroundColor: routine.color.replace("0.6", "1") }}
               >
                 {/* Show member emoji if multiple selected? */}
@@ -420,7 +420,7 @@ export function RoutineView({
               setAddToCalendar(false);
               setShowAddRoutine(true);
             }}
-            className="px-3 py-2 rounded-full text-sm font-medium bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] transition-colors flex items-center gap-1"
+            className="px-3 py-2 rounded-full text-sm font-medium bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] transition-colors flex items-center gap-1 flex-shrink-0"
           >
             <Plus size={16} />
             추가
