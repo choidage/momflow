@@ -145,14 +145,32 @@ class APIClient {
     formData.append('file', audioFile)
     formData.append('context', context)
 
-    return this.client.post('/stt/transcribe', formData, {
+    return this.client.post('/ai/stt/transcribe', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     })
   }
 
+  // 일정 정보 추출 (LLM)
+  async extractTodoInfo(text: string) {
+    return this.client.post('/ai/todo/extract', {
+      text: text
+    })
+  }
+
   // OCR endpoints
+  async extractTextFromImage(imageFile: File | Blob) {
+    const formData = new FormData()
+    formData.append('file', imageFile)
+
+    return this.client.post('/ai/ocr/extract-text', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  }
+
   async extractReceiptInfo(imageFile: File) {
     const formData = new FormData()
     formData.append('file', imageFile)

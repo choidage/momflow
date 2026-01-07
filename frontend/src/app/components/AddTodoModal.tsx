@@ -49,15 +49,22 @@ const formatLocalDate = (date: Date): string => {
 };
 
 export function AddTodoModal({ isOpen, onClose, onSave, initialData }: AddTodoModalProps) {
+  // 초기값 계산: 하루종일이면 시간 필드를 빈 문자열로 설정
+  const isAllDayInitial = initialData?.isAllDay || false;
+  const startTimeInitial = isAllDayInitial ? '' : (initialData?.startTime || initialData?.time || '09:00');
+  const endTimeInitial = isAllDayInitial ? '' : (initialData?.endTime || '10:00');
+  
   const [formData, setFormData] = useState<TodoFormData>({
     title: initialData?.title || '',
     date: initialData?.date || formatLocalDate(new Date()),
-    startTime: initialData?.startTime || initialData?.time || '09:00',
-    endTime: initialData?.endTime || '10:00',
-    isAllDay: initialData?.isAllDay || false,
+    startTime: startTimeInitial,
+    endTime: endTimeInitial,
+    isAllDay: isAllDayInitial,
     postponeToNextDay: initialData?.postponeToNextDay || false,
     category: initialData?.category || '생활',
-    checklistItems: initialData?.checklistItems && initialData.checklistItems.length > 0 ? initialData.checklistItems : [''],
+    checklistItems: initialData?.checklistItems && initialData.checklistItems.length > 0 
+      ? initialData.checklistItems.filter(item => item.trim() !== '') 
+      : [''],
     memo: initialData?.memo || '',
     location: initialData?.location || '',
     hasNotification: initialData?.hasNotification || false,
@@ -68,15 +75,22 @@ export function AddTodoModal({ isOpen, onClose, onSave, initialData }: AddTodoMo
   // initialData가 변경될 때 formData 업데이트
   useEffect(() => {
     if (initialData) {
+      // 하루종일이면 시간 필드를 빈 문자열로 설정
+      const isAllDay = initialData.isAllDay || false;
+      const startTime = isAllDay ? '' : (initialData.startTime || initialData.time || '09:00');
+      const endTime = isAllDay ? '' : (initialData.endTime || '10:00');
+      
       setFormData({
         title: initialData.title || '',
         date: initialData.date || formatLocalDate(new Date()),
-        startTime: initialData.startTime || initialData.time || '09:00',
-        endTime: initialData.endTime || '10:00',
-        isAllDay: initialData.isAllDay || false,
+        startTime: startTime,
+        endTime: endTime,
+        isAllDay: isAllDay,
         postponeToNextDay: initialData.postponeToNextDay || false,
         category: initialData.category || '생활',
-        checklistItems: initialData.checklistItems && initialData.checklistItems.length > 0 ? initialData.checklistItems : [''],
+        checklistItems: initialData.checklistItems && initialData.checklistItems.length > 0 
+          ? initialData.checklistItems.filter(item => item && item.trim() !== '') 
+          : [],
         memo: initialData.memo || '',
         location: initialData.location || '',
         hasNotification: initialData.hasNotification || false,

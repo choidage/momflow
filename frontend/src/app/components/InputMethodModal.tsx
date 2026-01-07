@@ -1,10 +1,27 @@
-import { X, Mic, Camera, FileText, Play, Square, Pause, RotateCcw, Eye } from "lucide-react";
+import { X, Mic, Camera, FileText, Play, Square, Pause, RotateCcw, Eye, Upload } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { apiClient } from "@/services/apiClient";
+import { toast } from "sonner";
+
+interface ExtractedTodoInfo {
+  title?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  isAllDay?: boolean;
+  category?: string;
+  checklistItems?: string[];
+  location?: string;
+  memo?: string;
+  repeatType?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  hasNotification?: boolean;
+  alarmTimes?: string[];
+}
 
 interface InputMethodModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (method: 'voice' | 'camera' | 'text') => void;
+  onSelect: (method: 'voice' | 'camera' | 'text', extractedText?: string, todoInfo?: ExtractedTodoInfo) => void;
 }
 
 export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModalProps) {
@@ -22,8 +39,15 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
 
   // Camera State
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  // STT State
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribedText, setTranscribedText] = useState<string>("");
+  // LLM 일정 정보 추출 State
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedTodoInfo, setExtractedTodoInfo] = useState<ExtractedTodoInfo | null>(null);
 
   useEffect(() => {
     return () => {
@@ -58,13 +82,74 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const url = URL.createObjectURL(audioBlob);
         setAudioBlob(audioBlob);
         setAudioUrl(url);
         setIsRecording(false);
         stream.getTracks().forEach(track => track.stop());
+
+        // 녹음 완료 후 STT 처리
+        try {
+          setIsTranscribing(true);
+          const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
+          console.log("STT 처리 시작:", audioFile);
+          const response = await apiClient.transcribeAudio(audioFile, 'todo');
+          console.log("STT 응답:", response);
+
+          if (response && response.data && response.data.text) {
+            const text = response.data.text;
+            setTranscribedText(text);
+            toast.success("음성이 텍스트로 변환되었습니다.");
+
+            // LLM으로 일정 정보 추출
+            try {
+              setIsExtracting(true);
+              console.log("일정 정보 추출 시작:", text);
+              const todoInfoResponse = await apiClient.extractTodoInfo(text);
+              console.log("일정 정보 추출 응답:", todoInfoResponse);
+
+              if (todoInfoResponse && todoInfoResponse.data) {
+                const info = todoInfoResponse.data;
+                const extractedInfo: ExtractedTodoInfo = {
+                  title: info.title || '',
+                  date: info.date,
+                  startTime: info.start_time || undefined,
+                  endTime: info.end_time || undefined,
+                  isAllDay: info.all_day || false,
+                  category: info.category || '기타',
+                  checklistItems: info.checklist && info.checklist.length > 0 ? info.checklist : [],
+                  location: info.location || '',
+                  memo: info.memo || text,
+                  repeatType: info.repeat_type || 'none',
+                  hasNotification: info.has_notification || false,
+                  alarmTimes: info.notification_times || [],
+                };
+                setExtractedTodoInfo(extractedInfo);
+                toast.success("일정 정보가 자동으로 추출되었습니다.");
+              } else {
+                console.error("일정 정보 추출 응답 데이터 없음:", todoInfoResponse);
+                toast.error("일정 정보 추출에 실패했습니다.");
+              }
+            } catch (error: any) {
+              console.error("일정 정보 추출 실패:", error);
+              console.error("에러 상세:", error.response?.data || error.message);
+              toast.error(`일정 정보 추출 실패: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
+            } finally {
+              setIsExtracting(false);
+            }
+          } else {
+            console.error("STT 응답 데이터 없음:", response);
+            toast.error("음성 변환에 실패했습니다.");
+          }
+        } catch (error: any) {
+          console.error("STT 처리 실패:", error);
+          console.error("에러 상세:", error.response?.data || error.message);
+          toast.error(`음성 변환 실패: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
+        } finally {
+          setIsTranscribing(false);
+        }
       };
 
       mediaRecorder.start();
@@ -125,7 +210,38 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
   const handleCameraClick = () => {
     setActiveMethod('camera');
     setCapturedImage(null);
-    startCamera();
+    setTranscribedText("");
+    setExtractedTodoInfo(null);
+    // 카메라 시작은 사용자가 선택하도록 변경
+  };
+
+  // 파일 선택 핸들러
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 이미지 파일인지 확인
+    if (!file.type.startsWith('image/')) {
+      toast.error("이미지 파일만 선택할 수 있습니다.");
+      return;
+    }
+
+    // 파일을 Blob으로 변환하여 처리
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      setCapturedImage(imageUrl);
+    };
+    reader.readAsDataURL(file);
+
+    // Blob으로 변환하여 업로드
+    const blob = file.slice(0, file.size, file.type);
+    await uploadImage(blob);
+
+    // 파일 input 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleCapture = async () => {
@@ -161,25 +277,59 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
     formData.append("file", blob, "capture.jpg");
 
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/memos/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
+      // OCR로 텍스트 추출
+      const ocrResponse = await apiClient.extractTextFromImage(blob);
+      console.log("OCR 응답:", ocrResponse);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload failed response:', response.status, errorText);
-        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      if (ocrResponse && ocrResponse.data && ocrResponse.data.text) {
+        const extractedText = ocrResponse.data.text;
+        setTranscribedText(extractedText);
+        toast.success("이미지에서 텍스트를 추출했습니다.");
+
+        // LLM으로 일정 정보 추출
+        try {
+          setIsExtracting(true);
+          console.log("일정 정보 추출 시작:", extractedText);
+          const todoInfoResponse = await apiClient.extractTodoInfo(extractedText);
+          console.log("일정 정보 추출 응답:", todoInfoResponse);
+
+          if (todoInfoResponse && todoInfoResponse.data) {
+            const info = todoInfoResponse.data;
+            const extractedInfo: ExtractedTodoInfo = {
+              title: info.title || '',
+              date: info.date,
+              startTime: info.start_time || undefined,
+              endTime: info.end_time || undefined,
+              isAllDay: info.all_day || false,
+              category: info.category || '기타',
+              checklistItems: info.checklist && info.checklist.length > 0 ? info.checklist : [],
+              location: info.location || '',
+              memo: info.memo || extractedText,
+              repeatType: info.repeat_type || 'none',
+              hasNotification: info.has_notification || false,
+              alarmTimes: info.notification_times || [],
+            };
+            setExtractedTodoInfo(extractedInfo);
+            toast.success("일정 정보가 자동으로 추출되었습니다.");
+          } else {
+            console.error("일정 정보 추출 응답 데이터 없음:", todoInfoResponse);
+            toast.error("일정 정보 추출에 실패했습니다.");
+          }
+        } catch (error: any) {
+          console.error("일정 정보 추출 실패:", error);
+          console.error("에러 상세:", error.response?.data || error.message);
+          toast.error(`일정 정보 추출 실패: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
+        } finally {
+          setIsExtracting(false);
+        }
+      } else {
+        console.error("OCR 응답 데이터 없음:", ocrResponse);
+        toast.error("텍스트 추출에 실패했습니다.");
       }
-      console.log("Image uploaded and saved as Memo");
-      // alert("이미지가 저장되었습니다."); // Optional feedback
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("이미지 저장에 실패했습니다.");
+    } catch (error: any) {
+      console.error("Error processing image:", error);
+      console.error("에러 상세:", error.response?.data || error.message);
+      toast.error(`이미지 처리 실패: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
     } finally {
       setIsUploading(false);
     }
@@ -230,11 +380,38 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
             </h3>
           </div>
 
-          <div className="w-full bg-white rounded-2xl p-8 mb-4 min-h-[180px] flex items-center justify-center shadow-sm">
-            <p className="text-[#9CA3AF] text-center">
-              텍스트를 작성 해 주세요.<br />
-              최대 1000자
-            </p>
+          {/* 텍스트 입력 영역 */}
+          <div className="w-full bg-white rounded-2xl p-4 mb-4 shadow-sm">
+            <textarea
+              value={transcribedText}
+              onChange={(e) => {
+                if (e.target.value.length <= 1000) {
+                  setTranscribedText(e.target.value);
+                }
+              }}
+              placeholder="텍스트를 작성해주세요. (최대 1000자)"
+              className="w-full min-h-[120px] p-3 border border-[#E5E7EB] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#FF9B82] text-sm text-[#1F2937]"
+              maxLength={1000}
+            />
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-[#9CA3AF]">
+                {transcribedText.length}/1000자
+              </span>
+              {transcribedText.trim().length > 0 && (
+                <button
+                  onClick={() => {
+                    onSelect('text', transcribedText, extractedTodoInfo || undefined);
+                    setTranscribedText("");
+                    setExtractedTodoInfo(null);
+                    setActiveMethod(null);
+                  }}
+                  disabled={isExtracting}
+                  className="px-4 py-2 bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExtracting ? '일정 정보 추출 중...' : extractedTodoInfo ? '일정 추가하기' : '저장'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Voice UI */}
@@ -242,9 +419,15 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
             <div className="w-full bg-white rounded-2xl p-6 mb-4 shadow-sm">
               <div className="flex flex-col items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full bg-[#FF9B82] ${isRecording ? 'animate-pulse' : ''}`} />
+                  <div className={`w-3 h-3 rounded-full bg-[#FF9B82] ${isRecording || isTranscribing ? 'animate-pulse' : ''}`} />
                   <span className="text-sm text-[#6B7280]">
-                    {isRecording ? '녹음 중... (최대 30초)' : '녹음 완료'}
+                    {isRecording
+                      ? '녹음 중... (최대 30초)'
+                      : isTranscribing
+                        ? '음성을 텍스트로 변환 중...'
+                        : isExtracting
+                          ? '일정 정보 추출 중...'
+                          : '녹음 완료'}
                   </span>
                 </div>
 
@@ -288,16 +471,29 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
                   {capturedImage ? (
                     <>
                       <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
-                      {isUploading && (
+                      {(isUploading || isExtracting) && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
-                          저장 중...
+                          {isUploading ? '텍스트 추출 중...' : '일정 정보 추출 중...'}
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : stream ? (
                     <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white text-sm">
+                      카메라를 시작하거나 사진을 선택해주세요
+                    </div>
                   )}
                 </div>
+
+                {/* 숨겨진 파일 input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
 
                 <div className="flex gap-2 w-full justify-between">
                   {capturedImage ? (
@@ -306,7 +502,7 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
                         <Camera size={18} /> 촬영
                       </button>
                       <button onClick={handleRetake} className="flex-1 py-2 bg-[#F3F4F6] text-[#6B7280] rounded-lg hover:bg-[#E5E7EB] flex items-center justify-center gap-1">
-                        <RotateCcw size={18} /> 재촬영
+                        <RotateCcw size={18} /> 다시 선택
                       </button>
                       <button onClick={handleView} className="flex-1 py-2 bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] flex items-center justify-center gap-1">
                         <Eye size={18} /> 보기
@@ -314,14 +510,35 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
                     </>
                   ) : (
                     <>
-                      <button onClick={handleCapture} className="flex-1 py-2 bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] flex items-center justify-center gap-1">
-                        <Camera size={18} /> 촬영
+                      <button
+                        onClick={() => {
+                          if (!stream) {
+                            startCamera();
+                          } else {
+                            handleCapture();
+                          }
+                        }}
+                        className="flex-1 py-2 bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] flex items-center justify-center gap-1"
+                      >
+                        <Camera size={18} /> {stream ? '촬영' : '카메라 시작'}
                       </button>
-                      <button disabled className="flex-1 py-2 bg-gray-100 text-gray-300 rounded-lg flex items-center justify-center gap-1">
-                        <RotateCcw size={18} /> 재촬영
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 py-2 bg-[#6366F1] text-white rounded-lg hover:bg-[#5558E3] flex items-center justify-center gap-1"
+                      >
+                        <Upload size={18} /> 사진 선택
                       </button>
-                      <button disabled className="flex-1 py-2 bg-gray-100 text-gray-300 rounded-lg flex items-center justify-center gap-1">
-                        <Eye size={18} /> 보기
+                      <button
+                        onClick={() => {
+                          if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                            setStream(null);
+                          }
+                          setActiveMethod(null);
+                        }}
+                        className="flex-1 py-2 bg-[#F3F4F6] text-[#6B7280] rounded-lg hover:bg-[#E5E7EB] flex items-center justify-center gap-1"
+                      >
+                        취소
                       </button>
                     </>
                   )}
@@ -332,7 +549,11 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
 
           <div className="text-center mb-6">
             <p className="text-[#6B7280]">
-              녹음을<br />시작합니다.
+              {activeMethod === 'camera'
+                ? '텍스트 추출을 시작합니다.'
+                : activeMethod === 'voice'
+                  ? '녹음을 시작합니다.'
+                  : '일정을 작성해주세요.'}
             </p>
           </div>
 

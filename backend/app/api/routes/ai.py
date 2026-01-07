@@ -3,6 +3,7 @@ STT and AI processing endpoints
 """
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -185,6 +186,68 @@ async def extract_contact_data(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"연락처 추출 실패: {str(e)}"
+        )
+
+
+class TodoExtractionRequest(BaseModel):
+    """일정 정보 추출 요청"""
+    text: str
+
+
+@router.post("/todo/extract")
+async def extract_todo_info(
+    request: TodoExtractionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    텍스트에서 일정 정보를 추출 (LLM 사용)
+    
+    추출 항목:
+    - title: 일정 제목
+    - date: 날짜 (YYYY-MM-DD, 언급 없으면 오늘)
+    - start_time: 시작 시간 (HH:MM, 없으면 null)
+    - end_time: 종료 시간 (HH:MM, 없으면 null)
+    - all_day: 하루종일 여부
+    - category: 카테고리 (언급 없으면 자동 분류)
+    - checklist: 체크리스트 항목 (2-5개)
+    - location: 장소
+    - memo: 원본 텍스트
+    - repeat_type: 반복 설정
+    - has_notification: 알림 설정
+    - notification_times: 알림 시간 배열
+    """
+    try:
+        result = await gemini_stt.extract_todo_info(request.text)
+        
+        if not result.get('success'):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get('error', '일정 정보 추출 실패')
+            )
+        
+        return {
+            "title": result.get("title", ""),
+            "date": result.get("date"),
+            "start_time": result.get("start_time"),
+            "end_time": result.get("end_time"),
+            "all_day": result.get("all_day", False),
+            "category": result.get("category", "기타"),
+            "checklist": result.get("checklist", []),
+            "location": result.get("location", ""),
+            "memo": result.get("memo", request.text),
+            "repeat_type": result.get("repeat_type", "none"),
+            "has_notification": result.get("has_notification", False),
+            "notification_times": result.get("notification_times", []),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"일정 정보 추출 실패: {str(e)}"
         )
 
 

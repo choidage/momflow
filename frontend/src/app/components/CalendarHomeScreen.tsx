@@ -1154,7 +1154,19 @@ export function CalendarHomeScreen() {
     toast.success("일정 시간이 변경되었습니다.");
   };
 
-  const handleInputMethodSelect = (method: 'voice' | 'camera' | 'text') => {
+  // STT/OCR로 추출된 텍스트 및 일정 정보 상태
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [extractedTodoInfo, setExtractedTodoInfo] = useState<any>(null);
+
+  // 로컬 날짜를 YYYY-MM-DD 형식으로 변환하는 헬퍼 함수
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  const handleInputMethodSelect = (method: 'voice' | 'camera' | 'text', extractedText?: string, todoInfo?: any) => {
     setShowInputMethodModal(false);
 
     if (method === 'voice') {
@@ -1162,6 +1174,14 @@ export function CalendarHomeScreen() {
     } else if (method === 'camera') {
       toast.info('이미지 촬영을 시작합니다.');
     } else {
+      // 텍스트 입력 또는 STT/OCR로 추출된 텍스트와 일정 정보가 있으면 설정
+      if (extractedText) {
+        setExtractedText(extractedText);
+      }
+      if (todoInfo) {
+        console.log("일정 정보 받음:", todoInfo);
+        setExtractedTodoInfo(todoInfo);
+      }
       setShowAddTodoModal(true);
     }
   };
@@ -2173,12 +2193,32 @@ export function CalendarHomeScreen() {
           onClose={() => {
             setShowAddTodoModal(false);
             setEditingTodoId(null);
+            setExtractedText(""); // 모달 닫을 때 추출된 텍스트 초기화
           }}
           onSave={handleSaveDetailedTodo}
           initialData={
             editingTodoId
               ? todos.find(t => t.id === editingTodoId)
-              : undefined
+              : extractedTodoInfo
+                ? {
+                  title: extractedTodoInfo.title || '',
+                  date: extractedTodoInfo.date || formatLocalDate(new Date()),
+                  startTime: extractedTodoInfo.startTime || (extractedTodoInfo.isAllDay ? '' : '09:00'),
+                  endTime: extractedTodoInfo.endTime || (extractedTodoInfo.isAllDay ? '' : '10:00'),
+                  isAllDay: extractedTodoInfo.isAllDay || false,
+                  category: extractedTodoInfo.category || '기타',
+                  checklistItems: extractedTodoInfo.checklistItems && extractedTodoInfo.checklistItems.length > 0
+                    ? extractedTodoInfo.checklistItems.filter((item: string) => item && item.trim() !== '')
+                    : [],
+                  location: extractedTodoInfo.location || '',
+                  memo: extractedTodoInfo.memo || extractedText || '',
+                  repeatType: extractedTodoInfo.repeatType || 'none',
+                  hasNotification: extractedTodoInfo.hasNotification || false,
+                  alarmTimes: extractedTodoInfo.alarmTimes || [],
+                }
+                : extractedText
+                  ? { memo: extractedText }
+                  : undefined
           }
         />
       )}
