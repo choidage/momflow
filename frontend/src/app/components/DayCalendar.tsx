@@ -14,9 +14,10 @@ interface DayCalendarProps {
   }>;
   routines?: RoutineItem[];
   onTodoUpdate?: (id: string, updates: { time: string; duration: number }) => void;
+  onTodoClick?: (todoId: string) => void;
 }
 
-export function DayCalendar({ todos, routines = [], onTodoUpdate }: DayCalendarProps) {
+export function DayCalendar({ todos, routines = [], onTodoUpdate, onTodoClick }: DayCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
   const [resizeMode, setResizeMode] = useState<'top' | 'bottom' | null>(null);
@@ -372,6 +373,12 @@ export function DayCalendar({ todos, routines = [], onTodoUpdate }: DayCalendarP
                     }}
                     onMouseDown={(e) => handleMouseDown(e, todo.id, todo.time, todo.duration)}
                     onTouchStart={(e) => handleTouchStart(e, todo.id, todo.time, todo.duration)}
+                    onClick={(e) => {
+                      if (!hasMoved && onTodoClick) {
+                        e.stopPropagation();
+                        onTodoClick(todo.id);
+                      }
+                    }}
                   >
                     {/* Resize Handle Top */}
                     <div

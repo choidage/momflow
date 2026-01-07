@@ -1,10 +1,26 @@
-import { X, Calendar, Clock, Tag, Bell, Repeat, ChevronDown, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { X, Calendar, Clock, Tag, Bell, Repeat, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface AddTodoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (todo: TodoFormData) => void;
+  initialData?: {
+    id?: string;
+    title?: string;
+    date?: string;
+    time?: string;
+    startTime?: string;
+    endTime?: string;
+    isAllDay?: boolean;
+    postponeToNextDay?: boolean;
+    category?: string;
+    checklistItems?: string[];
+    memo?: string;
+    hasNotification?: boolean;
+    alarmTimes?: string[];
+    repeatType?: 'none' | 'daily' | 'weekly' | 'monthly';
+  };
 }
 
 export interface TodoFormData {
@@ -12,34 +28,69 @@ export interface TodoFormData {
   date: string;
   startTime: string;
   endTime: string;
-  postponeMinutes: number;
+  isAllDay: boolean; // 하루종일 체크박스
+  postponeToNextDay: boolean; // 다음날로 미루기 체크박스
   category: string;
-  type: 'todo' | 'checklist';
-  checklistItems: string[];
+  checklistItems: string[]; // 항상 체크리스트 항목 사용
   memo: string;
   hasNotification: boolean;
   alarmTimes: string[];
   repeatType: 'none' | 'daily' | 'weekly' | 'monthly';
 }
 
-export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
+export function AddTodoModal({ isOpen, onClose, onSave, initialData }: AddTodoModalProps) {
   const [formData, setFormData] = useState<TodoFormData>({
-    title: '',
-    date: new Date().toISOString().split('T')[0],
-    startTime: '09:00',
-    endTime: '10:00',
-    postponeMinutes: 0,
-    category: '생활',
-    type: 'todo',
-    checklistItems: [''],
-    memo: '',
-    hasNotification: false,
-    alarmTimes: [],
-    repeatType: 'none',
+    title: initialData?.title || '',
+    date: initialData?.date || new Date().toISOString().split('T')[0],
+    startTime: initialData?.startTime || initialData?.time || '09:00',
+    endTime: initialData?.endTime || '10:00',
+    isAllDay: initialData?.isAllDay || false,
+    postponeToNextDay: initialData?.postponeToNextDay || false,
+    category: initialData?.category || '생활',
+    checklistItems: initialData?.checklistItems && initialData.checklistItems.length > 0 ? initialData.checklistItems : [''],
+    memo: initialData?.memo || '',
+    hasNotification: initialData?.hasNotification || false,
+    alarmTimes: initialData?.alarmTimes || [],
+    repeatType: initialData?.repeatType || 'none',
   });
 
-  const categories = ['운동', '건강', '업무', '생활', '기타'];
-  const postponeOptions = [0, 5, 10, 15, 30, 60];
+  // initialData가 변경될 때 formData 업데이트
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        date: initialData.date || new Date().toISOString().split('T')[0],
+        startTime: initialData.startTime || initialData.time || '09:00',
+        endTime: initialData.endTime || '10:00',
+        isAllDay: initialData.isAllDay || false,
+        postponeToNextDay: initialData.postponeToNextDay || false,
+        category: initialData.category || '생활',
+        checklistItems: initialData.checklistItems && initialData.checklistItems.length > 0 ? initialData.checklistItems : [''],
+        memo: initialData.memo || '',
+        hasNotification: initialData.hasNotification || false,
+        alarmTimes: initialData.alarmTimes || [],
+        repeatType: initialData.repeatType || 'none',
+      });
+    } else {
+      // 초기화
+      setFormData({
+        title: '',
+        date: new Date().toISOString().split('T')[0],
+        startTime: '09:00',
+        endTime: '10:00',
+        isAllDay: false,
+        postponeToNextDay: false,
+        category: '생활',
+        checklistItems: [''],
+        memo: '',
+        hasNotification: false,
+        alarmTimes: [],
+        repeatType: 'none',
+      });
+    }
+  }, [initialData, isOpen]);
+
+  const categories = ['운동', '건강', '업무', '생활', '공부', '기타'];
   const repeatOptions = [
     { value: 'none', label: '없음' },
     { value: 'daily', label: '매일' },
@@ -109,9 +160,9 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
       date: new Date().toISOString().split('T')[0],
       startTime: '09:00',
       endTime: '10:00',
-      postponeMinutes: 0,
+      isAllDay: false,
+      postponeToNextDay: false,
       category: '생활',
-      type: 'todo',
       checklistItems: [''],
       memo: '',
       hasNotification: false,
@@ -171,14 +222,15 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
                 <Clock size={18} className="text-[#FF9B82]" />
                 시작/종료 시간
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
                   <label className="block text-xs text-[#6B7280] mb-1">시작 시간</label>
                   <input
                     type="time"
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent"
+                    disabled={formData.isAllDay}
+                    className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF]"
                   />
                 </div>
                 <div>
@@ -187,28 +239,29 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
                     type="time"
                     value={formData.endTime}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent"
+                    disabled={formData.isAllDay}
+                    className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF]"
                   />
                 </div>
               </div>
-            </div>
-
-            {/* 미루기 */}
-            <div>
-              <label className="block text-sm font-medium text-[#1F2937] mb-2">
-                미루기 (분)
+              {/* 하루종일 체크박스 */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isAllDay}
+                  onChange={(e) => {
+                    const isAllDay = e.target.checked;
+                    setFormData({
+                      ...formData,
+                      isAllDay,
+                      startTime: isAllDay ? '00:00' : formData.startTime,
+                      endTime: isAllDay ? '24:00' : formData.endTime,
+                    });
+                  }}
+                  className="w-4 h-4 text-[#FF9B82] border-[#D1D5DB] rounded focus:ring-2 focus:ring-[#FF9B82]"
+                />
+                <span className="text-sm text-[#6B7280]">하루종일</span>
               </label>
-              <select
-                value={formData.postponeMinutes}
-                onChange={(e) => setFormData({ ...formData, postponeMinutes: Number(e.target.value) })}
-                className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent appearance-none bg-white"
-              >
-                {postponeOptions.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {minutes === 0 ? '미루기 없음' : `${minutes}분 후`}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* 카테고리 */}
@@ -217,16 +270,15 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
                 <Tag size={18} className="text-[#FF9B82]" />
                 카테고리
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {categories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setFormData({ ...formData, category })}
-                    className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                      formData.category === category
-                        ? 'bg-[#FF9B82] text-white border-[#FF9B82]'
-                        : 'bg-white text-[#6B7280] border-[#D1D5DB] hover:border-[#FF9B82]'
-                    }`}
+                    className={`flex-shrink-0 px-4 py-2 rounded-lg border-2 transition-all whitespace-nowrap ${formData.category === category
+                      ? 'bg-[#FF9B82] text-white border-[#FF9B82]'
+                      : 'bg-white text-[#6B7280] border-[#D1D5DB] hover:border-[#FF9B82]'
+                      }`}
                   >
                     {category}
                   </button>
@@ -234,64 +286,39 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
               </div>
             </div>
 
-            {/* 투두/체크리스트 */}
+            {/* 체크리스트 */}
             <div>
               <label className="block text-sm font-medium text-[#1F2937] mb-2">
-                유형
+                체크리스트
               </label>
-              <div className="flex gap-4 mb-3">
+              <div className="space-y-2">
+                {formData.checklistItems.map((item, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) => handleChecklistItemChange(index, e.target.value)}
+                      placeholder={`항목 ${index + 1}`}
+                      className="flex-1 px-4 py-2 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent"
+                    />
+                    {formData.checklistItems.length > 1 && (
+                      <button
+                        onClick={() => handleRemoveChecklistItem(index)}
+                        className="p-2 text-[#EF4444] hover:bg-[#FEE2E2] rounded-lg transition-colors"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                  </div>
+                ))}
                 <button
-                  onClick={() => setFormData({ ...formData, type: 'todo' })}
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
-                    formData.type === 'todo'
-                      ? 'bg-[#FF9B82] text-white border-[#FF9B82]'
-                      : 'bg-white text-[#6B7280] border-[#D1D5DB] hover:border-[#FF9B82]'
-                  }`}
+                  onClick={handleAddChecklistItem}
+                  className="w-full px-4 py-2 border-2 border-dashed border-[#D1D5DB] rounded-lg text-[#6B7280] hover:border-[#FF9B82] hover:text-[#FF9B82] transition-all flex items-center justify-center gap-2"
                 >
-                  투두
-                </button>
-                <button
-                  onClick={() => setFormData({ ...formData, type: 'checklist' })}
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
-                    formData.type === 'checklist'
-                      ? 'bg-[#FF9B82] text-white border-[#FF9B82]'
-                      : 'bg-white text-[#6B7280] border-[#D1D5DB] hover:border-[#FF9B82]'
-                  }`}
-                >
-                  체크리스트
+                  <Plus size={18} />
+                  항목 추가
                 </button>
               </div>
-
-              {formData.type === 'checklist' && (
-                <div className="space-y-2">
-                  {formData.checklistItems.map((item, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={item}
-                        onChange={(e) => handleChecklistItemChange(index, e.target.value)}
-                        placeholder={`항목 ${index + 1}`}
-                        className="flex-1 px-4 py-2 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent"
-                      />
-                      {formData.checklistItems.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveChecklistItem(index)}
-                          className="p-2 text-[#EF4444] hover:bg-[#FEE2E2] rounded-lg transition-colors"
-                        >
-                          <Trash2 size={20} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    onClick={handleAddChecklistItem}
-                    className="w-full px-4 py-2 border-2 border-dashed border-[#D1D5DB] rounded-lg text-[#6B7280] hover:border-[#FF9B82] hover:text-[#FF9B82] transition-all flex items-center justify-center gap-2"
-                  >
-                    <Plus size={18} />
-                    항목 추가
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* 메모 */}
@@ -306,6 +333,25 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
                 rows={3}
                 className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent resize-none"
               />
+            </div>
+
+            {/* 반복 설정 */}
+            <div>
+              <label className="block text-sm font-medium text-[#1F2937] mb-2 flex items-center gap-2">
+                <Repeat size={18} className="text-[#FF9B82]" />
+                반복 설정
+              </label>
+              <select
+                value={formData.repeatType}
+                onChange={(e) => setFormData({ ...formData, repeatType: e.target.value as any })}
+                className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent appearance-none bg-white"
+              >
+                {repeatOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* 알림 여부 */}
@@ -361,25 +407,6 @@ export function AddTodoModal({ isOpen, onClose, onSave }: AddTodoModalProps) {
                 </div>
               </div>
             )}
-
-            {/* 반복 여부 */}
-            <div>
-              <label className="block text-sm font-medium text-[#1F2937] mb-2 flex items-center gap-2">
-                <Repeat size={18} className="text-[#FF9B82]" />
-                반복 설정
-              </label>
-              <select
-                value={formData.repeatType}
-                onChange={(e) => setFormData({ ...formData, repeatType: e.target.value as any })}
-                className="w-full px-4 py-3 border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF9B82] focus:border-transparent appearance-none bg-white"
-              >
-                {repeatOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 

@@ -15,9 +15,10 @@ interface WeekCalendarProps {
   }>;
   routines?: RoutineItem[];
   onTodoUpdate?: (id: string, updates: { time: string; duration: number }) => void;
+  onTodoClick?: (todoId: string) => void;
 }
 
-export function WeekCalendar({ todos, routines = [], onTodoUpdate }: WeekCalendarProps) {
+export function WeekCalendar({ todos, routines = [], onTodoUpdate, onTodoClick }: WeekCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
   const [resizeMode, setResizeMode] = useState<'top' | 'bottom' | null>(null);
@@ -214,7 +215,11 @@ export function WeekCalendar({ todos, routines = [], onTodoUpdate }: WeekCalenda
   // Click handling (only if not moved)
   const handleItemClick = (todoId: string) => {
     if (!hasMoved) {
-      setSelectedTodo(selectedTodo === todoId ? null : todoId);
+      if (onTodoClick) {
+        onTodoClick(todoId);
+      } else {
+        setSelectedTodo(selectedTodo === todoId ? null : todoId);
+      }
     }
   };
 

@@ -14,9 +14,10 @@ interface MonthCalendarProps {
   }>;
   routines?: RoutineItem[]; // Added routines prop
   onDateSelect?: (date: string) => void;
+  onTodoClick?: (todoId: string) => void;
 }
 
-export function MonthCalendar({ todos, routines = [], onDateSelect }: MonthCalendarProps) {
+export function MonthCalendar({ todos, routines = [], onDateSelect, onTodoClick }: MonthCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hoveredDate, setHoveredDate] = useState<number | null>(null);
 
@@ -102,12 +103,25 @@ export function MonthCalendar({ todos, routines = [], onDateSelect }: MonthCalen
               <span className="text-[10px] font-bold text-[#FF9B82]">{month + 1}월 {day}일</span>
             </div>
             <div className="p-1.5 space-y-0.5">
-              {events.slice(0, 3).map((e, i) => (
-                <div key={i} className="text-[10px] text-[#4B5563] truncate flex items-center gap-1">
-                  <span className={`w-1 h-1 rounded-full ${e.type === 'todo' ? 'bg-[#3B82F6]' : 'bg-[#10B981]'}`}></span>
-                  {e.title}
-                </div>
-              ))}
+              {events.slice(0, 3).map((e, i) => {
+                // Find corresponding todo ID
+                const todoForEvent = todos.find(t => t.title === e.title && t.date === `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+                return (
+                  <div
+                    key={i}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (todoForEvent && onTodoClick) {
+                        onTodoClick(todoForEvent.id);
+                      }
+                    }}
+                    className="text-[10px] text-[#4B5563] truncate flex items-center gap-1 cursor-pointer hover:bg-[#FFF0EB] px-1 py-0.5 rounded transition-colors pointer-events-auto"
+                  >
+                    <span className={`w-1 h-1 rounded-full ${e.type === 'todo' ? 'bg-[#3B82F6]' : 'bg-[#10B981]'}`}></span>
+                    {e.title}
+                  </div>
+                );
+              })}
               {events.length > 3 && (
                 <div className="text-[9px] text-[#9CA3AF] pl-2">+ {events.length - 3}건 더보기</div>
               )}

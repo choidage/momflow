@@ -226,7 +226,7 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
           <div className="text-center mb-8">
             <h3 className="text-xl font-semibold text-[#1F2937] border-b-2 border-[#D1D5DB] inline-block pb-2">
-              AI 작성 / 직접 작성
+              일정 작성
             </h3>
           </div>
 

@@ -16,6 +16,8 @@ import {
   X,
   Clock,
   Tag,
+  Calendar,
+  Repeat,
 } from "lucide-react";
 import { TodoAddSheet } from "./TodoAddSheet";
 import { MemberAddSheet } from "./MemberAddSheet";
@@ -44,6 +46,7 @@ export function CalendarHomeScreen() {
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [calendarView, setCalendarView] = useState<"month" | "week" | "day">("month");
   const [userEmail, setUserEmail] = useState("momflow@email.com");
+  const [userName, setUserName] = useState("홍길동");
   const [selectedEmoji, setSelectedEmoji] = useState("🐼");
 
   // Family members for user selection
@@ -52,6 +55,8 @@ export function CalendarHomeScreen() {
     name: string;
     emoji: string;
     color: string;
+    phone?: string;
+    memo?: string;
   }
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([
@@ -71,7 +76,7 @@ export function CalendarHomeScreen() {
     );
   };
 
-  // Draggable FAB state
+  // Draggable FAB state - 기본값을 우측 하단으로 설정 (우측에서 왼쪽으로 이동 가능)
   const [fabPosition, setFabPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -79,6 +84,9 @@ export function CalendarHomeScreen() {
   const [showInputMethodModal, setShowInputMethodModal] = useState(false);
   const [showAddTodoModal, setShowAddTodoModal] = useState(false);
   const [selectedTodoForDetail, setSelectedTodoForDetail] = useState<string | null>(null);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  // 체크리스트 항목 상태 관리 (id별로 completed 상태 저장)
+  const [checklistItemStates, setChecklistItemStates] = useState<Record<string, Record<string, boolean>>>({});
 
   const handleFabMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -196,6 +204,9 @@ export function CalendarHomeScreen() {
     completed: boolean;
     category: string;
     date?: string;
+    startTime?: string;
+    endTime?: string;
+    isAllDay?: boolean;
     memo?: string;
     hasNotification?: boolean;
     alarmTimes?: string[];
@@ -203,6 +214,7 @@ export function CalendarHomeScreen() {
     type?: "todo" | "checklist";
     checklistItems?: string[];
     postponeMinutes?: number;
+    postponeToNextDay?: boolean;
     memberId?: string;
     isRoutine?: boolean;
     routineId?: string;
@@ -237,27 +249,59 @@ export function CalendarHomeScreen() {
     const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
     const duration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
 
-    const newTodo = {
-      id: Date.now().toString(),
-      title: formData.title,
-      time: formData.startTime,
-      duration: duration > 0 ? duration : 60,
-      completed: false,
-      category: formData.category,
-      date: formData.date,
-      memo: formData.memo,
-      hasNotification: formData.hasNotification,
-      alarmTimes: formData.alarmTimes,
-      repeatType: formData.repeatType,
-      type: formData.type,
-      checklistItems: formData.checklistItems,
-      postponeMinutes: formData.postponeMinutes,
-    };
+    if (editingTodoId) {
+      // 수정 모드
+      const updatedTodo = {
+        id: editingTodoId,
+        title: formData.title,
+        time: formData.startTime,
+        duration: duration > 0 ? duration : 60,
+        completed: todos.find(t => t.id === editingTodoId)?.completed || false,
+        category: formData.category,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        isAllDay: formData.isAllDay,
+        memo: formData.memo,
+        hasNotification: formData.hasNotification,
+        alarmTimes: formData.alarmTimes,
+        repeatType: formData.repeatType,
+        checklistItems: formData.checklistItems.filter(item => item.trim() !== ''),
+        postponeToNextDay: formData.postponeToNextDay,
+      };
 
-    setTodos((prev) =>
-      [...prev, newTodo].sort((a, b) => a.time.localeCompare(b.time))
-    );
-    toast.success("일정이 추가되었습니다.");
+      setTodos((prev) =>
+        prev.map(t => t.id === editingTodoId ? updatedTodo : t)
+          .sort((a, b) => a.time.localeCompare(b.time))
+      );
+      toast.success("일정이 수정되었습니다.");
+      setEditingTodoId(null);
+    } else {
+      // 추가 모드
+      const newTodo = {
+        id: Date.now().toString(),
+        title: formData.title,
+        time: formData.startTime,
+        duration: duration > 0 ? duration : 60,
+        completed: false,
+        category: formData.category,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        isAllDay: formData.isAllDay,
+        memo: formData.memo,
+        hasNotification: formData.hasNotification,
+        alarmTimes: formData.alarmTimes,
+        repeatType: formData.repeatType,
+        checklistItems: formData.checklistItems.filter(item => item.trim() !== ''),
+        postponeToNextDay: formData.postponeToNextDay,
+      };
+
+      setTodos((prev) =>
+        [...prev, newTodo].sort((a, b) => a.time.localeCompare(b.time))
+      );
+      toast.success("일정이 추가되었습니다.");
+    }
   };
 
   const toggleTodoComplete = (id: string) => {
@@ -291,28 +335,31 @@ export function CalendarHomeScreen() {
 
   const handleSaveMember = (member: any) => {
     if (editingMemberId) {
-      // 수정 모드
+      // 수정 모드 - 시간표 프로필은 기본 프로필과 분리
       setFamilyMembers((prev) =>
         prev.map((m) =>
           m.id === editingMemberId
             ? {
-                ...m,
-                name: member.name || m.name,
-                emoji: member.emoji || m.emoji,
-                phone: member.phone || m.phone,
-              }
+              ...m,
+              name: member.name || m.name,
+              emoji: member.emoji || m.emoji, // 시간표 전용 프로필 이모지
+              phone: member.phone || m.phone,
+              memo: member.memo || m.memo,
+            }
             : m
         )
       );
       toast.success(`${member.name}님이 수정되었습니다!`);
       setEditingMemberId(null);
     } else {
-      // 추가 모드
+      // 추가 모드 - 시간표 프로필은 기본 프로필과 분리해서 저장
       const newMember: FamilyMember = {
         id: Date.now().toString(),
         name: member.name,
-        emoji: member.emoji || "👤",
+        emoji: member.emoji || "🐼", // 시간표 전용 프로필 이모지 (기본 프로필과 분리)
         color: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.6)`,
+        phone: member.phone,
+        memo: member.memo,
       };
       setFamilyMembers((prev) => [...prev, newMember]);
       toast.success(`${member.name}님이 추가되었습니다!`);
@@ -552,25 +599,49 @@ export function CalendarHomeScreen() {
         {/* Profile Menu Dropdown */}
         {showProfileMenu && (
           <div className="absolute top-4 left-4 right-4 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
-            {/* Email Section */}
+            {/* User Info Section */}
             <div className="px-5 py-4 bg-gradient-to-r from-[#FFF0EB] to-[#FFE8E0] border-b border-[#FFD4C8]">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <input
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    className="w-full bg-white px-3 py-2 rounded-lg text-sm text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] transition-all"
-                  />
+              <div className="space-y-3">
+                {/* User Name */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="w-full bg-white px-3 py-2 rounded-lg text-sm text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] transition-all"
+                      placeholder="사용자 이름"
+                    />
+                  </div>
+                  <button
+                    className="flex-shrink-0 p-2 bg-white rounded-lg hover:bg-[#FFF5F0] transition-colors"
+                    onClick={() => {
+                      toast.success("이름이 수정되었습니다.");
+                    }}
+                  >
+                    <Edit2 size={16} className="text-[#FF9B82]" />
+                  </button>
                 </div>
-                <button
-                  className="flex-shrink-0 p-2 bg-white rounded-lg hover:bg-[#FFF5F0] transition-colors"
-                  onClick={() => {
-                    toast.success("이메일이 수정되었습니다.");
-                  }}
-                >
-                  <Edit2 size={16} className="text-[#FF9B82]" />
-                </button>
+                {/* Email */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="email"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      className="w-full bg-white px-3 py-2 rounded-lg text-sm text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] transition-all"
+                      placeholder="이메일"
+                    />
+                  </div>
+                  <button
+                    className="flex-shrink-0 p-2 bg-white rounded-lg hover:bg-[#FFF5F0] transition-colors"
+                    onClick={() => {
+                      toast.success("이메일이 수정되었습니다.");
+                    }}
+                  >
+                    <Edit2 size={16} className="text-[#FF9B82]" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -694,6 +765,7 @@ export function CalendarHomeScreen() {
                     onDateSelect={(date) => {
                       toast.info(`${date} 날짜를 선택했습니다.`);
                     }}
+                    onTodoClick={(todoId) => setSelectedTodoForDetail(todoId)}
                   />
 
                   {/* Recent To-Do List (최근 3개) */}
@@ -706,15 +778,19 @@ export function CalendarHomeScreen() {
                         <div
                           key={todo.id}
                           className={`${getCategoryColor(todo.category)} border-l-4 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all`}
-                          onClick={() => toggleTodoComplete(todo.id)}
+                          onClick={() => setSelectedTodoForDetail(todo.id)}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <div
-                                  className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${todo.completed
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleTodoComplete(todo.id);
+                                  }}
+                                  className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-110 transition-transform ${todo.completed
                                     ? "bg-[#FF9B82] border-[#FF9B82]"
-                                    : "border-[#D1D5DB] bg-white"
+                                    : "border-[#D1D5DB] bg-white hover:border-[#FF9B82]"
                                     }`}
                                 >
                                   {todo.completed && (
@@ -753,21 +829,17 @@ export function CalendarHomeScreen() {
                   todos={todos}
                   routines={filteredRoutines}
                   onTodoUpdate={handleTodoUpdate}
+                  onTodoClick={(todoId) => setSelectedTodoForDetail(todoId)}
                 />
               )}
 
               {/* Day Calendar */}
               {calendarView === "day" && (
                 <DayCalendar
-                  todos={displayTodos} // DayCalendar might prefer filtered for today? Or general? 
-                  // It uses date filtering internally, but passing ALL merged todos is safer if it filters.
-                  // However, WeekCalendar handles merging internaly. DayCalendar updated too.
-                  // Let's pass 'todos' (manual) and 'routines' (filtered) to maintain consistency with WeekCalendar.
-                  // Wait, earlier I updated DayCalendar to accept Routines.
-                  // So I should pass manual todos + filtered routines.
                   todos={todos}
                   routines={filteredRoutines}
                   onTodoUpdate={handleTodoUpdate}
+                  onTodoClick={(todoId) => setSelectedTodoForDetail(todoId)}
                 />
               )}
             </div>
@@ -831,68 +903,6 @@ export function CalendarHomeScreen() {
                 ))}
               </div>
 
-              {/* Todo Detail Modal */}
-              {selectedTodoForDetail && (() => {
-                const todo = todos.find(t => t.id === selectedTodoForDetail);
-                if (!todo) return null;
-
-                return (
-                  <>
-                    {/* Backdrop */}
-                    <div
-                      className="fixed inset-0 bg-black/20 z-40"
-                      onClick={() => setSelectedTodoForDetail(null)}
-                    />
-
-                    {/* Detail Box */}
-                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 max-w-[90vw] bg-white rounded-xl shadow-2xl z-50 border-2 border-[#E5E7EB]">
-                      <div className="p-5">
-                        <div className="flex items-start justify-between mb-4">
-                          <h3 className="font-semibold text-[#1F2937] flex-1">일정 상세</h3>
-                          <button
-                            onClick={() => setSelectedTodoForDetail(null)}
-                            className="p-1 hover:bg-[#F3F4F6] rounded transition-colors"
-                          >
-                            <X size={20} className="text-[#6B7280]" />
-                          </button>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="bg-[#FAFAFA] rounded-lg p-4">
-                            <h4 className="font-medium text-[#1F2937] mb-4 text-lg">{todo.title}</h4>
-
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3 text-sm text-[#6B7280]">
-                                <Clock size={18} className="text-[#9CA3AF]" />
-                                <span>{todo.time} ({todo.duration}분)</span>
-                              </div>
-
-                              <div className="flex items-center gap-3 text-sm text-[#6B7280]">
-                                <Tag size={18} className="text-[#9CA3AF]" />
-                                <span
-                                  className={`px-3 py-1 rounded text-sm ${getCategoryColor(todo.category)}`}
-                                >
-                                  {todo.category}
-                                </span>
-                              </div>
-
-                              <div className="pt-3 border-t border-[#E5E7EB]">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-[#6B7280]">상태:</span>
-                                  <span className={`text-sm font-medium ${todo.completed ? "text-[#10B981]" : "text-[#F59E0B]"
-                                    }`}>
-                                    {todo.completed ? "완료" : "미완료"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
             </>
           )}
 
@@ -912,13 +922,218 @@ export function CalendarHomeScreen() {
         </div>
       </div>
 
+      {/* Todo Detail Modal - 공통 사용 (모든 탭에서 표시) */}
+      {selectedTodoForDetail && (() => {
+        const todo = todos.find(t => t.id === selectedTodoForDetail);
+        if (!todo) return null;
+
+        // 체크리스트 항목 준비
+        const checklistItems = todo.checklistItems || [];
+        const todoChecklistStates = checklistItemStates[todo.id] || {};
+
+        // 체크리스트 항목 토글 함수
+        const toggleChecklistItem = (itemIndex: number) => {
+          const itemKey = `item-${itemIndex}`;
+          setChecklistItemStates(prev => ({
+            ...prev,
+            [todo.id]: {
+              ...prev[todo.id],
+              [itemKey]: !prev[todo.id]?.[itemKey],
+            },
+          }));
+        };
+
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/20 z-40"
+              onClick={() => setSelectedTodoForDetail(null)}
+            />
+
+            {/* Detail Box */}
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 max-w-[90vw] max-h-[80vh] bg-white rounded-xl shadow-2xl z-50 border-2 border-[#E5E7EB] overflow-y-auto">
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="font-semibold text-[#1F2937] flex-1">일정 상세</h3>
+                  <button
+                    onClick={() => setSelectedTodoForDetail(null)}
+                    className="p-1 hover:bg-[#F3F4F6] rounded transition-colors"
+                  >
+                    <X size={20} className="text-[#6B7280]" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-[#FAFAFA] rounded-lg p-4">
+                    <h4 className="font-medium text-[#1F2937] mb-4 text-lg">{todo.title}</h4>
+
+                    <div className="space-y-3">
+                      {/* 날짜 */}
+                      {todo.date && (
+                        <div className="flex items-center gap-3 text-sm text-[#6B7280]">
+                          <Calendar size={18} className="text-[#9CA3AF]" />
+                          <span>{new Date(todo.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                        </div>
+                      )}
+
+                      {/* 시간 */}
+                      <div className="flex items-center gap-3 text-sm text-[#6B7280]">
+                        <Clock size={18} className="text-[#9CA3AF]" />
+                        <div className="flex flex-col gap-1">
+                          {todo.isAllDay ? (
+                            <span className="font-medium">하루종일</span>
+                          ) : (
+                            <>
+                              <span>
+                                {todo.startTime || todo.time} ~ {todo.endTime || (todo.duration ? `${Math.floor(todo.duration / 60)}:${String(todo.duration % 60).padStart(2, '0')}` : '')}
+                              </span>
+                              {todo.duration && <span className="text-xs text-[#9CA3AF]">({todo.duration}분)</span>}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 카테고리 */}
+                      <div className="flex items-center gap-3 text-sm text-[#6B7280]">
+                        <Tag size={18} className="text-[#9CA3AF]" />
+                        <span
+                          className={`px-3 py-1 rounded text-sm ${getCategoryColor(todo.category)}`}
+                        >
+                          {todo.category}
+                        </span>
+                      </div>
+
+                      {/* 미루기 설정 */}
+                      <div className="flex items-center gap-3 text-sm text-[#6B7280] pt-3 border-t border-[#E5E7EB]">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={todo.postponeToNextDay || false}
+                            onChange={(e) => {
+                              setTodos(prev =>
+                                prev.map(t =>
+                                  t.id === todo.id
+                                    ? { ...t, postponeToNextDay: e.target.checked }
+                                    : t
+                                )
+                              );
+                            }}
+                            className="w-4 h-4 text-[#FF9B82] border-[#D1D5DB] rounded focus:ring-2 focus:ring-[#FF9B82]"
+                          />
+                          <span className="text-sm text-[#1F2937]">오늘 일정 완료하지 못하면 다음날로 미루기</span>
+                        </label>
+                      </div>
+
+                      {/* 체크리스트 항목 표시 */}
+                      {checklistItems.length > 0 && (
+                        <div className="pt-3 border-t border-[#E5E7EB]">
+                          <h5 className="text-xs font-medium text-[#9CA3AF] uppercase mb-2">체크리스트</h5>
+                          <div className="space-y-2">
+                            {checklistItems.map((itemText, index) => {
+                              const itemKey = `item-${index}`;
+                              const isCompleted = todoChecklistStates[itemKey] || false;
+                              return (
+                                <div key={index} className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => toggleChecklistItem(index)}
+                                    className={`
+                                      w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                                      ${isCompleted ? 'bg-[#FF9B82] border-[#FF9B82]' : 'border-[#D1D5DB] hover:border-[#FF9B82]'}
+                                    `}
+                                  >
+                                    {isCompleted && <Check size={14} className="text-white" />}
+                                  </button>
+                                  <span className={`text-sm text-[#1F2937] ${isCompleted ? 'line-through text-[#9CA3AF]' : ''}`}>
+                                    {itemText}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 메모 */}
+                      {todo.memo && (
+                        <div className="pt-3 border-t border-[#E5E7EB]">
+                          <h5 className="text-xs font-medium text-[#9CA3AF] uppercase mb-2">메모</h5>
+                          <p className="text-sm text-[#1F2937] whitespace-pre-wrap">{todo.memo}</p>
+                        </div>
+                      )}
+
+                      {/* 반복 설정 */}
+                      {todo.repeatType && todo.repeatType !== 'none' && (
+                        <div className="flex items-center gap-3 text-sm text-[#6B7280] pt-3 border-t border-[#E5E7EB]">
+                          <Repeat size={18} className="text-[#9CA3AF]" />
+                          <span>
+                            {todo.repeatType === 'daily' && '매일 반복'}
+                            {todo.repeatType === 'weekly' && '매주 반복'}
+                            {todo.repeatType === 'monthly' && '매월 반복'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 알림 설정 */}
+                      {todo.hasNotification && (
+                        <div className="pt-3 border-t border-[#E5E7EB]">
+                          <div className="flex items-center gap-3 text-sm text-[#6B7280] mb-2">
+                            <Bell size={18} className="text-[#9CA3AF]" />
+                            <span>알림 설정됨</span>
+                          </div>
+                          {todo.alarmTimes && todo.alarmTimes.length > 0 && (
+                            <div className="ml-7 space-y-1">
+                              {todo.alarmTimes.map((alarmTime, index) => (
+                                <div key={index} className="text-xs text-[#6B7280]">
+                                  • {alarmTime}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 완료 상태 */}
+                      <div className="pt-3 border-t border-[#E5E7EB]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-[#6B7280]">상태:</span>
+                          <span className={`text-sm font-medium ${todo.completed ? "text-[#10B981]" : "text-[#F59E0B]"
+                            }`}>
+                            {todo.completed ? "완료" : "미완료"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 수정 버튼 */}
+                <div className="mt-6 pt-4 border-t border-[#E5E7EB]">
+                  <button
+                    onClick={() => {
+                      setEditingTodoId(todo.id);
+                      setShowAddTodoModal(true);
+                      setSelectedTodoForDetail(null);
+                    }}
+                    className="w-full px-4 py-3 bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <Edit2 size={18} />
+                    수정
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {/* Floating Action Button (Add Todo) */}
       <button
         className="fixed w-16 h-16 bg-[#FF9B82] rounded-full shadow-lg flex items-center justify-center text-white hover:bg-[#FF8A6D] transition-all hover:scale-110 z-40 cursor-move select-none"
         style={{
-          left: `calc(50% - 187.5px + 24px + ${fabPosition.x}px)`,
+          right: `24px`,
           bottom: `80px`,
-          transform: `translateY(${fabPosition.y}px)`,
+          transform: `translate(${fabPosition.x}px, ${fabPosition.y}px)`,
         }}
         aria-label="일정 추가"
         onMouseDown={handleFabMouseDown}
@@ -940,8 +1155,12 @@ export function CalendarHomeScreen() {
       {showAddTodoModal && (
         <AddTodoModal
           isOpen={showAddTodoModal}
-          onClose={() => setShowAddTodoModal(false)}
+          onClose={() => {
+            setShowAddTodoModal(false);
+            setEditingTodoId(null);
+          }}
           onSave={handleSaveDetailedTodo}
+          initialData={editingTodoId ? todos.find(t => t.id === editingTodoId) : undefined}
         />
       )}
 
@@ -953,6 +1172,7 @@ export function CalendarHomeScreen() {
           setEditingMemberId(null);
         }}
         onSave={handleSaveMember}
+        initialData={editingMemberId ? familyMembers.find(m => m.id === editingMemberId) : undefined}
       />
 
       {/* Work Contact Add Sheet */}
@@ -972,6 +1192,11 @@ export function CalendarHomeScreen() {
       <MyPageScreen
         isOpen={showMyPageScreen}
         onClose={() => setShowMyPageScreen(false)}
+        userName={userName}
+        userEmail={userEmail}
+        selectedEmoji={selectedEmoji}
+        onUserNameChange={setUserName}
+        onEmojiChange={setSelectedEmoji}
       />
 
       {/* Settings Screen */}
