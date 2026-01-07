@@ -1413,7 +1413,7 @@ export function CalendarHomeScreen() {
 
       {/* 시간표 탭 아래에 사용자 선택 영역을 배치 (UX 개선: 탭 → 필터 순서) */}
       {activeTab === "routine" && (
-        <div className="bg-white px-4 py-3 border-b border-[#F3F4F6]">
+        <div className="bg-white px-4 pt-6 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-[#1F2937]">시간표</h4>
             <button
@@ -1425,7 +1425,7 @@ export function CalendarHomeScreen() {
             </button>
           </div>
           {/* 가로 스크롤 가능한 사용자 목록 */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-[#FF9B82] scrollbar-track-[#F3F4F6]">
+          <div className="flex gap-3 overflow-x-auto pt-2 pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-[#FF9B82] scrollbar-track-[#F3F4F6]">
             {familyMembers.map((member) => {
               const isSelected = selectedMembers.includes(member.id);
               return (
@@ -1433,7 +1433,7 @@ export function CalendarHomeScreen() {
                   <button
                     onClick={() => toggleMemberSelection(member.id)}
                     className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all min-w-[80px] ${isSelected
-                      ? "bg-[#FF9B82] shadow-md scale-105"
+                      ? "bg-[#FF9B82] shadow-md scale-100"
                       : "bg-[#F9FAFB] hover:bg-[#F3F4F6]"
                       }`}
                   >
