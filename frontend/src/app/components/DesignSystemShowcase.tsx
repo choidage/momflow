@@ -81,7 +81,7 @@ export function DesignSystemShowcase() {
       
       <div className="max-w-7xl mx-auto">
         <div className="mb-12">
-          <h1 className="mb-2">MomFlow Design System</h1>
+          <h1 className="mb-2">Always Plan Design System</h1>
           <p className="text-[#6B7280]">부모들을 위한 손쉬운 일정 관리 & 소통</p>
         </div>
 

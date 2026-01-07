@@ -1,7 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* MomFlow Design System */
+  /* Always Plan Design System */
   --font-size: 16px;
   
   /* Brand Colors */
@@ -156,7 +156,7 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   
-  /* MomFlow specific colors */
+  /* Always Plan specific colors */
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);

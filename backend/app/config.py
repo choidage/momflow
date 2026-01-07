@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     environment: str = os.getenv("ENVIRONMENT", "development")
     
     # 데이터베이스
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./momflow.db")
+    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./always-plan.db")
     
     # API 키
     google_gemini_api_key: str = os.getenv("GOOGLE_GEMINI_API_KEY", "")
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     google_redirect_uri: str = (
         "http://localhost:5173"
         if os.getenv("ENVIRONMENT", "development") == "development"
-        else "https://momflow.com"
+        else "https://always-plan.com"
     )
     
     # 서버

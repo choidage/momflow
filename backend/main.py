@@ -1,5 +1,5 @@
 """
-MomFlow API - Main Application
+Always Plan API - Main Application
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # FastAPI 앱 생성
 app = FastAPI(
-    title="MomFlow API",
+    title="Always Plan API",
     description="가족 일정 관리 및 음성 인식 기반 할일 추가 플랫폼",
     version="1.0.0"
 )
@@ -85,7 +85,7 @@ app.include_router(memos.router)
 from app.database import init_db
 init_db()
 
-logger.info("MomFlow API initialized successfully")
+logger.info("Always Plan API initialized successfully")
 
 
 if __name__ == "__main__":

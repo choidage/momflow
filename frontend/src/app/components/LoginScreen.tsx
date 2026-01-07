@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader } from 'lucide-react'
+import { ArrowLeft, Loader, Calendar } from 'lucide-react'
 import { Checkbox } from './ui/checkbox'
 import { useState, useEffect } from 'react'
 import { apiClient } from '@/services/apiClient';
@@ -106,14 +106,10 @@ export function LoginScreen() {
       <div className="w-full max-w-[320px]">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-[#FF9B82] rounded-2xl flex items-center justify-center mb-4">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 6h18" />
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-            </svg>
+          <div className="w-16 h-16 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+            <Calendar size={32} className="text-white" strokeWidth={2.5} />
           </div>
-          <h1 className="mb-2">MOMFLOW</h1>
+          <h1 className="mb-2 text-2xl font-bold text-[#1F2937]">ALWAYS PLAN</h1>
           <p className="text-[#6B7280] text-center">부모들을 위한 손쉬운 일정 관리 & 소통</p>
         </div>
 

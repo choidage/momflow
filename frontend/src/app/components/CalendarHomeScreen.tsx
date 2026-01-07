@@ -35,6 +35,7 @@ import { WeekCalendar } from "./WeekCalendar";
 import { DayCalendar } from "./DayCalendar";
 import { RoutineView } from "./RoutineView";
 import { toast } from "sonner";
+import { apiClient } from "@/services/apiClient";
 
 export function CalendarHomeScreen() {
   const [showTodoAddSheet, setShowTodoAddSheet] = useState(false);
@@ -47,7 +48,7 @@ export function CalendarHomeScreen() {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [calendarView, setCalendarView] = useState<"month" | "week" | "day">("month");
-  const [userEmail, setUserEmail] = useState("momflow@email.com");
+  const [userEmail, setUserEmail] = useState("always-plan@email.com");
   const [userName, setUserName] = useState("홍길동");
   const [selectedEmoji, setSelectedEmoji] = useState("🐼");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -798,9 +799,33 @@ export function CalendarHomeScreen() {
 
             {/* Logout */}
             <button
-              onClick={() => {
-                setShowProfileMenu(false);
-                toast.success("로그아웃 되었습니다.");
+              onClick={async () => {
+                try {
+                  setShowProfileMenu(false);
+                  
+                  // 백엔드에 로그아웃 요청 (선택사항)
+                  try {
+                    await apiClient.logout();
+                  } catch (error) {
+                    console.error('Logout API error:', error);
+                    // API 호출 실패해도 로컬 로그아웃은 진행
+                  }
+                  
+                  // 로컬 스토리지에서 토큰 삭제
+                  localStorage.removeItem('access_token');
+                  localStorage.removeItem('refresh_token');
+                  localStorage.removeItem('remember_me');
+                  
+                  toast.success("로그아웃 되었습니다.");
+                  
+                  // 페이지 리로드하여 로그인 화면으로 전환
+                  setTimeout(() => {
+                    window.location.href = '/';
+                  }, 500);
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  toast.error("로그아웃 중 오류가 발생했습니다.");
+                }
               }}
               className="w-full px-5 py-3.5 flex items-center gap-3 hover:bg-[#FEF2F2] transition-colors"
             >

@@ -3,7 +3,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { CalendarHomeScreen } from './components/CalendarHomeScreen'
 
 /**
- * MomFlow App
+ * Always Plan App
  * 로그인 상태에 따라 화면 분기
  */
 export default function App() {

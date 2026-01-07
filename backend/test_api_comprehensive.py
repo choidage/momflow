@@ -1,5 +1,5 @@
 """
-MomFlow 완전 API 테스트
+Always Plan 완전 API 테스트
 모든 엔드포인트 검증
 """
 import asyncio
@@ -14,7 +14,7 @@ TIMEOUT = 10
 
 # 테스트 데이터
 TEST_USER = {
-    "email": "test@momflow.com",
+    "email": "test@always-plan.com",
     "name": "Test User",
     "avatar_emoji": "🧪"
 }
@@ -172,7 +172,7 @@ async def test_ai_health():
 async def run_all_tests():
     """모든 테스트 실행"""
     print("=" * 60)
-    print("🧪 MomFlow API 통합 테스트 시작")
+    print("🧪 Always Plan API 통합 테스트 시작")
     print("=" * 60)
     
     results = {}

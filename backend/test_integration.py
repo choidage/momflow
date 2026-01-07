@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MomFlow API 통합 테스트
+Always Plan API 통합 테스트
 """
 import requests
 import json
@@ -38,7 +38,7 @@ def test_database():
     print("\n📊 Testing Database initialization...")
     try:
         from pathlib import Path
-        db_path = Path("momflow.db")
+        db_path = Path("always-plan.db")
         
         # 데이터베이스 파일 존재 확인
         if db_path.exists():
@@ -82,7 +82,7 @@ def test_imports():
 def main():
     """전체 테스트 실행"""
     print("=" * 60)
-    print("🚀 MomFlow API Integration Tests")
+    print("🚀 Always Plan API Integration Tests")
     print("=" * 60)
     
     results = {

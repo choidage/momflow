@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-MomFlow Backend Launcher
+Always Plan Backend Launcher
 모든 경로 설정을 자동으로 처리하고 서버를 시작합니다.
 """
 import os

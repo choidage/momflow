@@ -15,7 +15,7 @@ export function MomFlowLogo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
         <Calendar size={config.icon} className="text-[#6366F1]" />
         <Heart size={config.icon * 0.5} className="absolute -bottom-1 -right-1 text-[#F59E0B] fill-[#F59E0B]" />
       </div>
-      <span className={`${config.text} font-bold text-[#6366F1]`}>MomFlow</span>
+      <span className={`${config.text} font-bold text-[#6366F1]`}>Always Plan</span>
     </div>
   );
 }
