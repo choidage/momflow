@@ -221,7 +221,8 @@ export function CalendarHomeScreen() {
           // actualDayOfWeek도 0(일) ~ 6(토) 순서
           if (actualDayOfWeek === slot.day) {
             console.log(`일정 추가: ${day}일 (${['일', '월', '화', '수', '목', '금', '토'][actualDayOfWeek]}) - slot.day: ${slot.day}`);
-            const dateString = date.toISOString().split('T')[0];
+            // 로컬 날짜를 직접 포맷팅 (UTC 변환으로 인한 날짜 밀림 방지)
+            const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             // 이 요일에 이미 일정이 있는지 확인 (중복 방지)
             const existingTodo = todos.find(t => t.id === `routine-calendar-${routine.id}-${dateString}`);
@@ -534,7 +535,11 @@ export function CalendarHomeScreen() {
 
   /* Helper to get Todos for a specific date (시간표와 분리) */
   const getTodosForDate = (targetDate: Date) => {
-    const dateString = targetDate.toISOString().split('T')[0];
+    // 로컬 날짜를 직접 포맷팅 (UTC 변환으로 인한 날짜 밀림 방지)
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth() + 1;
+    const day = targetDate.getDate();
+    const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
     // Regular Todos만 반환 (시간표는 제외)
     const regularTodos = todos.filter(t => (!t.date || t.date === dateString) && !t.isRoutine);
