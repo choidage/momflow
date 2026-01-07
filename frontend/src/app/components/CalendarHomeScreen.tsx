@@ -1730,14 +1730,153 @@ export function CalendarHomeScreen() {
                           <input
                             type="checkbox"
                             checked={todo.postponeToNextDay || false}
-                            onChange={(e) => {
+                            onChange={async (e) => {
+                              const isChecked = e.target.checked;
+
+                              // 프론트엔드 상태 업데이트
                               setTodos(prev =>
                                 prev.map(t =>
                                   t.id === todo.id
-                                    ? { ...t, postponeToNextDay: e.target.checked }
+                                    ? { ...t, postponeToNextDay: isChecked }
                                     : t
                                 )
                               );
+
+                              // 체크박스가 해제되면 다음날 일정 삭제
+                              if (!isChecked) {
+                                try {
+                                  // 다음날 날짜 계산
+                                  if (!todo.date) {
+                                    return;
+                                  }
+                                  const currentDate = new Date(todo.date);
+                                  const nextDate = new Date(currentDate);
+                                  nextDate.setDate(nextDate.getDate() + 1);
+
+                                  // 다음날 날짜 문자열로 변환
+                                  const nextDateString = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+                                  // 다음날에 같은 일정 찾기 (제목, 날짜, 시작 시간이 일치)
+                                  const nextDayTodo = todos.find(t =>
+                                    t.title === todo.title &&
+                                    t.date === nextDateString &&
+                                    t.startTime === todo.startTime
+                                  );
+
+                                  if (nextDayTodo) {
+                                    console.log("미루기 해제: 다음날 일정 삭제 시작:", nextDayTodo.id);
+                                    await deleteTodo(nextDayTodo.id);
+                                    toast.success("다음날 일정이 삭제되었습니다.");
+                                  }
+                                } catch (error: any) {
+                                  console.error("다음날 일정 삭제 실패:", error);
+                                  toast.error("다음날 일정 삭제에 실패했습니다.");
+                                }
+                                return;
+                              }
+
+                              // 체크박스가 체크되면 다음날 일정 생성
+                              if (isChecked) {
+                                try {
+                                  // 다음날 날짜 계산
+                                  if (!todo.date) {
+                                    toast.error("일정 날짜가 없습니다.");
+                                    return;
+                                  }
+                                  const currentDate = new Date(todo.date);
+                                  const nextDate = new Date(currentDate);
+                                  nextDate.setDate(nextDate.getDate() + 1);
+
+                                  // 다음날 날짜 문자열로 변환
+                                  const nextDateString = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+
+                                  // 다음날에 이미 같은 일정이 있는지 확인
+                                  const existingNextDayTodo = todos.find(t =>
+                                    t.title === todo.title &&
+                                    t.date === nextDateString &&
+                                    t.startTime === todo.startTime
+                                  );
+
+                                  if (existingNextDayTodo) {
+                                    toast.info("다음날에 이미 같은 일정이 있습니다.");
+                                    return;
+                                  }
+
+                                  // 다음날 일정 데이터 준비
+                                  const duration = todo.duration || 60;
+                                  const [startHours, startMinutes] = (todo.startTime || "09:00").split(':').map(Number);
+                                  const startTotalMinutes = startHours * 60 + startMinutes;
+                                  const endTotalMinutes = startTotalMinutes + duration;
+                                  const endHours = Math.floor(endTotalMinutes / 60) % 24;
+                                  const endMins = endTotalMinutes % 60;
+                                  const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+                                  const nextDayTodoData = {
+                                    title: todo.title,
+                                    description: todo.memo || "",
+                                    memo: todo.memo || "",
+                                    location: todo.location || "",
+                                    date: nextDateString,
+                                    start_time: todo.startTime || "09:00",
+                                    end_time: endTime,
+                                    all_day: todo.isAllDay || false,
+                                    category: todo.category || "기타",
+                                    status: 'pending',
+                                    has_notification: todo.hasNotification || false,
+                                    notification_times: todo.alarmTimes || [],
+                                    repeat_type: "none",
+                                    checklist_items: todo.checklistItems || [],
+                                  };
+
+                                  console.log("다음날 일정 생성 시작:", nextDayTodoData);
+                                  const response = await apiClient.createTodo(nextDayTodoData);
+
+                                  if (response && response.data) {
+                                    // 응답 데이터에서 날짜 형식 변환
+                                    let todoDate = response.data.date;
+                                    if (todoDate instanceof Date) {
+                                      const year = todoDate.getFullYear();
+                                      const month = todoDate.getMonth() + 1;
+                                      const day = todoDate.getDate();
+                                      todoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    } else if (typeof todoDate === 'string') {
+                                      todoDate = todoDate;
+                                    }
+
+                                    const newNextDayTodo: TodoItem = {
+                                      id: response.data.id,
+                                      title: response.data.title,
+                                      time: response.data.start_time || "09:00",
+                                      duration: duration,
+                                      completed: false,
+                                      category: response.data.category || "기타",
+                                      date: todoDate,
+                                      startTime: response.data.start_time,
+                                      endTime: response.data.end_time,
+                                      isAllDay: response.data.all_day || false,
+                                      memo: response.data.memo || response.data.description || "",
+                                      location: response.data.location || "",
+                                      hasNotification: response.data.has_notification || false,
+                                      alarmTimes: response.data.notification_times || [],
+                                      repeatType: response.data.repeat_type || "none",
+                                      checklistItems: response.data.checklist_items?.map((item: any) => item.text || item) || [],
+                                      memberId: todo.memberId,
+                                      isRoutine: false,
+                                    };
+
+                                    setTodos(prev => [...prev, newNextDayTodo]);
+                                    toast.success("다음날 일정이 추가되었습니다.");
+                                    console.log("다음날 일정 생성 완료:", newNextDayTodo);
+                                  } else {
+                                    console.error("응답 데이터 없음:", response);
+                                    toast.error("다음날 일정 추가에 실패했습니다.");
+                                  }
+                                } catch (error: any) {
+                                  console.error("다음날 일정 생성 실패:", error);
+                                  console.error("에러 상세:", error.response?.data || error.message);
+                                  toast.error(`다음날 일정 추가에 실패했습니다: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
+                                }
+                              }
                             }}
                             className="w-4 h-4 text-[#FF9B82] border-[#D1D5DB] rounded focus:ring-2 focus:ring-[#FF9B82]"
                           />
@@ -1897,9 +2036,7 @@ export function CalendarHomeScreen() {
           initialData={
             editingTodoId
               ? todos.find(t => t.id === editingTodoId)
-              : extractedText
-                ? { memo: extractedText }
-                : undefined
+              : undefined
           }
         />
       )}
