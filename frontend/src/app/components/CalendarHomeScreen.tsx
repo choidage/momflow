@@ -18,6 +18,7 @@ import {
   Tag,
   Calendar,
   Repeat,
+  Trash2,
 } from "lucide-react";
 import { TodoAddSheet } from "./TodoAddSheet";
 import { MemberAddSheet } from "./MemberAddSheet";
@@ -366,6 +367,15 @@ export function CalendarHomeScreen() {
     }
   };
 
+  const handleDeleteMember = (memberId: string) => {
+    const member = familyMembers.find(m => m.id === memberId);
+    if (member && window.confirm(`${member.name}님을 삭제하시겠습니까?`)) {
+      setFamilyMembers((prev) => prev.filter((m) => m.id !== memberId));
+      setSelectedMembers((prev) => prev.filter((id) => id !== memberId));
+      toast.success(`${member.name}님이 삭제되었습니다.`);
+    }
+  };
+
   const handleSaveWorkContact = (contact: any) => {
     toast.success(`${contact.name}님의 연락처가 저장되었습니다!`);
     console.log("New Work Contact:", contact);
@@ -580,6 +590,19 @@ export function CalendarHomeScreen() {
                   >
                     <Edit2 size={12} />
                   </button>
+                  {/* 삭제 버튼 (호버 시 표시, "나"는 제외) */}
+                  {member.id !== "1" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteMember(member.id);
+                      }}
+                      className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#EF4444] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-[#DC2626] z-10"
+                      title="삭제"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -599,50 +622,35 @@ export function CalendarHomeScreen() {
         {/* Profile Menu Dropdown */}
         {showProfileMenu && (
           <div className="absolute top-4 left-4 right-4 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
-            {/* User Info Section */}
-            <div className="px-5 py-4 bg-gradient-to-r from-[#FFF0EB] to-[#FFE8E0] border-b border-[#FFD4C8]">
-              <div className="space-y-3">
-                {/* User Name */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      className="w-full bg-white px-3 py-2 rounded-lg text-sm text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] transition-all"
-                      placeholder="사용자 이름"
-                    />
+            {/* Header with Close Button */}
+            <div className="relative">
+              {/* User Info Section */}
+              <div className="px-5 py-4 bg-gradient-to-r from-[#FFF0EB] to-[#FFE8E0] border-b border-[#FFD4C8]">
+                <div className="space-y-3">
+                  {/* Profile Emoji */}
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FFD4C8] to-[#FF9B82] flex items-center justify-center">
+                      <span className="text-4xl">{selectedEmoji}</span>
+                    </div>
                   </div>
-                  <button
-                    className="flex-shrink-0 p-2 bg-white rounded-lg hover:bg-[#FFF5F0] transition-colors"
-                    onClick={() => {
-                      toast.success("이름이 수정되었습니다.");
-                    }}
-                  >
-                    <Edit2 size={16} className="text-[#FF9B82]" />
-                  </button>
-                </div>
-                {/* Email */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="email"
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
-                      className="w-full bg-white px-3 py-2 rounded-lg text-sm text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#FF9B82] transition-all"
-                      placeholder="이메일"
-                    />
+                  {/* User Name */}
+                  <div className="flex items-center justify-center">
+                    <span className="text-base font-medium text-[#1F2937]">{userName}</span>
                   </div>
-                  <button
-                    className="flex-shrink-0 p-2 bg-white rounded-lg hover:bg-[#FFF5F0] transition-colors"
-                    onClick={() => {
-                      toast.success("이메일이 수정되었습니다.");
-                    }}
-                  >
-                    <Edit2 size={16} className="text-[#FF9B82]" />
-                  </button>
+                  {/* Email */}
+                  <div className="flex items-center justify-center">
+                    <span className="text-sm text-[#6B7280]">{userEmail}</span>
+                  </div>
                 </div>
               </div>
+              {/* Close Button */}
+              <button
+                onClick={() => setShowProfileMenu(false)}
+                className="absolute top-3 right-3 p-1.5 bg-white/80 hover:bg-white rounded-full transition-colors shadow-sm"
+                aria-label="닫기"
+              >
+                <X size={18} className="text-[#6B7280]" />
+              </button>
             </div>
 
             {/* Menu Items */}
