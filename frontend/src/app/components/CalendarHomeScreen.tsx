@@ -284,9 +284,39 @@ export function CalendarHomeScreen() {
     return colors[category] || colors["기타"];
   };
 
+  /**
+   * 사용자 추가/수정 핸들러
+   */
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+
   const handleSaveMember = (member: any) => {
-    toast.success(`${member.name}님이 추가되었습니다!`);
-    console.log("New Member:", member);
+    if (editingMemberId) {
+      // 수정 모드
+      setFamilyMembers((prev) =>
+        prev.map((m) =>
+          m.id === editingMemberId
+            ? {
+                ...m,
+                name: member.name || m.name,
+                emoji: member.emoji || m.emoji,
+                phone: member.phone || m.phone,
+              }
+            : m
+        )
+      );
+      toast.success(`${member.name}님이 수정되었습니다!`);
+      setEditingMemberId(null);
+    } else {
+      // 추가 모드
+      const newMember: FamilyMember = {
+        id: Date.now().toString(),
+        name: member.name,
+        emoji: member.emoji || "👤",
+        color: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.6)`,
+      };
+      setFamilyMembers((prev) => [...prev, newMember]);
+      toast.success(`${member.name}님이 추가되었습니다!`);
+    }
   };
 
   const handleSaveWorkContact = (contact: any) => {
@@ -417,43 +447,6 @@ export function CalendarHomeScreen() {
         </button>
       </div>
 
-      {/* User Selection - Only show in routine tab */}
-      {activeTab === "routine" && (
-        <div className="bg-white px-4 py-3 border-b border-[#F3F4F6]">
-          <h4 className="font-semibold text-[#1F2937] mb-3">시간표 사용자 선택</h4>
-          <div className="grid grid-cols-4 gap-3">
-            {familyMembers.map((member) => {
-              const isSelected = selectedMembers.includes(member.id);
-              return (
-                <button
-                  key={member.id}
-                  onClick={() => toggleMemberSelection(member.id)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${isSelected
-                    ? "bg-[#FF9B82] shadow-md scale-105"
-                    : "bg-[#F9FAFB] hover:bg-[#F3F4F6]"
-                    }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${isSelected
-                      ? "bg-white"
-                      : "bg-gradient-to-br from-[#FFD4C8] to-[#FF9B82]"
-                      }`}
-                  >
-                    {member.emoji}
-                  </div>
-                  <span
-                    className={`text-xs font-medium ${isSelected ? "text-white" : "text-[#6B7280]"
-                      }`}
-                  >
-                    {member.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* ToDo, Calendar, Routine Tabs */}
       <div className="bg-white px-4 py-3 border-b border-[#F3F4F6]">
         <div className="flex gap-2">
@@ -486,6 +479,66 @@ export function CalendarHomeScreen() {
           </button>
         </div>
       </div>
+
+      {/* 시간표 탭 아래에 사용자 선택 영역을 배치 (UX 개선: 탭 → 필터 순서) */}
+      {activeTab === "routine" && (
+        <div className="bg-white px-4 py-3 border-b border-[#F3F4F6]">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-[#1F2937]">시간표</h4>
+            <button
+              onClick={() => setShowMemberAddSheet(true)}
+              className="px-3 py-1.5 text-sm font-medium bg-[#FF9B82] text-white rounded-lg hover:bg-[#FF8A6D] transition-colors flex items-center gap-1"
+            >
+              <Users size={16} />
+              추가
+            </button>
+          </div>
+          {/* 가로 스크롤 가능한 사용자 목록 */}
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-[#FF9B82] scrollbar-track-[#F3F4F6]">
+            {familyMembers.map((member) => {
+              const isSelected = selectedMembers.includes(member.id);
+              return (
+                <div key={member.id} className="flex-shrink-0 relative group">
+                  <button
+                    onClick={() => toggleMemberSelection(member.id)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all min-w-[80px] ${isSelected
+                      ? "bg-[#FF9B82] shadow-md scale-105"
+                      : "bg-[#F9FAFB] hover:bg-[#F3F4F6]"
+                      }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all relative ${isSelected
+                        ? "bg-white"
+                        : "bg-gradient-to-br from-[#FFD4C8] to-[#FF9B82]"
+                        }`}
+                    >
+                      {member.emoji}
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${isSelected ? "text-white" : "text-[#6B7280]"
+                        }`}
+                    >
+                      {member.name}
+                    </span>
+                  </button>
+                  {/* 편집 버튼 (호버 시 표시) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMemberId(member.id);
+                      setShowMemberAddSheet(true);
+                    }}
+                    className="absolute -top-1 -right-1 w-6 h-6 bg-[#6366F1] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-[#5558E3] z-10"
+                    title="수정"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Notification Panel */}
       <NotificationPanel
@@ -895,7 +948,10 @@ export function CalendarHomeScreen() {
       {/* Member Add Sheet */}
       <MemberAddSheet
         isOpen={showMemberAddSheet}
-        onClose={() => setShowMemberAddSheet(false)}
+        onClose={() => {
+          setShowMemberAddSheet(false);
+          setEditingMemberId(null);
+        }}
         onSave={handleSaveMember}
       />
 
