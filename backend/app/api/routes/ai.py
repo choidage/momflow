@@ -59,14 +59,30 @@ async def transcribe_audio(
         mime_type = mime_types.get(file_ext, "audio/mpeg")
         
         # Call Gemini API
+        logger.info(f"STT 처리 시작 - 파일명: {file.filename}, 크기: {len(content)} bytes, MIME: {mime_type}")
         result = await gemini_stt.transcribe(
             audio_data=content,
             mime_type=mime_type,
             language=language
         )
         
+        logger.info(f"STT 결과: {result}")
+        
+        # success가 False이면 에러 발생
+        if not result.get('success', True):
+            error_msg = result.get('error', 'STT 처리 실패')
+            logger.error(f"STT 실패: {error_msg}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error_msg
+            )
+        
+        transcribed_text = result.get("text", "")
+        logger.info(f"변환된 텍스트: {transcribed_text}")
+        logger.info(f"텍스트 길이: {len(transcribed_text)}")
+        
         return {
-            "text": result["text"],
+            "text": transcribed_text,
             "language": language,
             "confidence": result.get("confidence", 0.95),
             "duration": result.get("duration", 0),

@@ -76,8 +76,8 @@ export function CalendarHomeScreen() {
     );
   };
 
-  // Draggable FAB state - 기본값을 우측 하단으로 설정 (우측에서 왼쪽으로 이동 가능)
-  const [fabPosition, setFabPosition] = useState({ x: 0, y: 0 });
+  // Draggable FAB state - 기본값을 화면 중간으로 설정
+  const [fabPosition, setFabPosition] = useState({ x: 0, y: -200 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [hasMoved, setHasMoved] = useState(false);
@@ -93,6 +93,7 @@ export function CalendarHomeScreen() {
 
   const handleFabMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setHasMoved(false);
     setIsDragging(true);
     setDragStart({
@@ -103,6 +104,7 @@ export function CalendarHomeScreen() {
 
   const handleFabTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touch = e.touches[0];
     setHasMoved(false);
     setIsDragging(true);
@@ -2361,11 +2363,17 @@ export function CalendarHomeScreen() {
 
       {/* Floating Action Button (Add Todo) */}
       <button
-        className="fixed w-16 h-16 bg-[#FF9B82] rounded-full shadow-lg flex items-center justify-center text-white hover:bg-[#FF8A6D] transition-all hover:scale-110 z-40 cursor-move select-none"
+        className={`fixed w-16 h-16 bg-[#FF9B82] rounded-full shadow-lg flex items-center justify-center text-white z-40 select-none ${
+          isDragging 
+            ? 'cursor-grabbing' 
+            : 'cursor-grab hover:bg-[#FF8A6D] transition-colors duration-200'
+        }`}
         style={{
           right: `24px`,
           bottom: `80px`,
           transform: `translate(${fabPosition.x}px, ${fabPosition.y}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          willChange: isDragging ? 'transform' : 'auto',
         }}
         aria-label="일정 추가"
         onMouseDown={handleFabMouseDown}

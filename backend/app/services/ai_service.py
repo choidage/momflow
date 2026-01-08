@@ -102,8 +102,10 @@ class GeminiSTTService:
         """
         오디오 데이터를 텍스트로 변환 (바이트 데이터 직접 처리)
         """
+        logger.info(f"[STT] 시작 - 오디오 크기: {len(audio_data)} bytes, MIME: {mime_type}, 언어: {language}")
+        
         if not self.api_key:
-            logger.error("Google Gemini API key not configured")
+            logger.error("[STT] Google Gemini API key not configured")
             return {
                 'success': False,
                 'text': '',
@@ -111,21 +113,27 @@ class GeminiSTTService:
                 'confidence': 0.0,
             }
         
+        logger.info(f"[STT] API Key 존재: {self.api_key[:10]}...")
+        
         try:
             import google.generativeai as genai
             genai.configure(api_key=self.api_key)
+            logger.info("[STT] Gemini API 설정 완료")
             
             # Gemini 2.0 Flash 모델 사용
             model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            logger.info("[STT] 모델 생성 완료: gemini-2.0-flash-exp")
             
             # 오디오 데이터를 base64로 인코딩
             import base64
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            logger.info(f"[STT] Base64 인코딩 완료 - 길이: {len(audio_base64)}")
             
             # 프롬프트 작성
             prompt = "이 오디오 파일의 내용을 한국어로 정확하게 전사해주세요. 일정이나 할 일에 관련된 내용이라면 핵심 정보를 추출해주세요."
             
             # Gemini API 호출
+            logger.info("[STT] Gemini API 호출 시작")
             response = model.generate_content([
                 {
                     "mime_type": mime_type,
@@ -133,8 +141,11 @@ class GeminiSTTService:
                 },
                 prompt
             ])
+            logger.info("[STT] Gemini API 응답 받음")
             
             transcribed_text = response.text.strip()
+            logger.info(f"[STT] 변환 완료 - 텍스트: '{transcribed_text}'")
+            logger.info(f"[STT] 변환된 텍스트 길이: {len(transcribed_text)}")
             
             return {
                 'success': True,
@@ -144,7 +155,9 @@ class GeminiSTTService:
             }
             
         except Exception as e:
-            logger.error(f"Gemini STT error: {e}")
+            logger.error(f"[STT] Gemini STT error: {e}", exc_info=True)
+            logger.error(f"[STT] 에러 타입: {type(e).__name__}")
+            logger.error(f"[STT] 에러 메시지: {str(e)}")
             return {
                 'success': False,
                 'text': '',

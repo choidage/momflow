@@ -56,6 +56,17 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
     console.log("transcribedText 상태 변경됨:", transcribedText);
   }, [transcribedText]);
 
+  // stream이 변경될 때 videoRef에 연결
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      console.log("[useEffect] stream 변경 감지, videoRef에 연결");
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(err => {
+        console.error("[useEffect] video play 실패:", err);
+      });
+    }
+  }, [stream]);
+
   useEffect(() => {
     return () => {
       // Cleanup URL on unmount
@@ -102,12 +113,19 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
           setIsTranscribing(true);
           const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
           console.log("STT 처리 시작:", audioFile);
+          console.log("오디오 파일 크기:", audioFile.size, "bytes");
+          
           const response = await apiClient.transcribeAudio(audioFile, 'todo');
-          console.log("STT 응답:", response);
+          console.log("STT 응답 전체:", response);
+          console.log("STT 응답 data:", response?.data);
+          console.log("STT 응답 text:", response?.data?.text);
 
           if (response && response.data && response.data.text) {
             const text = response.data.text;
+            console.log("변환된 텍스트:", text);
+            console.log("텍스트 길이:", text.length);
             setTranscribedText(text);
+            console.log("transcribedText 상태 업데이트 완료");
             toast.success("음성이 텍스트로 변환되었습니다.");
 
             // LLM으로 일정 정보 추출
@@ -148,12 +166,19 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
             }
           } else {
             console.error("STT 응답 데이터 없음:", response);
-            toast.error("음성 변환에 실패했습니다.");
+            console.error("response.data:", response?.data);
+            console.error("response.data.text:", response?.data?.text);
+            toast.error("음성 변환에 실패했습니다. 텍스트 데이터가 없습니다.");
+            // 빈 응답이라도 일단 텍스트 영역을 표시하도록
+            setTranscribedText("[음성 변환 실패 - 다시 시도해주세요]");
           }
         } catch (error: any) {
           console.error("STT 처리 실패:", error);
           console.error("에러 상세:", error.response?.data || error.message);
+          console.error("에러 전체:", JSON.stringify(error, null, 2));
           toast.error(`음성 변환 실패: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}`);
+          // 에러 메시지를 텍스트 영역에 표시
+          setTranscribedText(`[에러 발생: ${error.response?.data?.detail || error.message || "알 수 없는 오류"}]`);
         } finally {
           setIsTranscribing(false);
         }
@@ -201,16 +226,37 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
 
   // --- Camera Logic ---
   const startCamera = async () => {
+    console.log("[카메라] 시작 시도...");
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // 단순한 카메라 설정 (노트북 호환성)
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: true,
+        audio: false
+      });
+      console.log("[카메라] 스트림 획득 성공:", mediaStream);
+      console.log("[카메라] 비디오 트랙:", mediaStream.getVideoTracks());
+      
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      // videoRef 연결은 useEffect에서 처리
+    } catch (error: any) {
+      console.error("[카메라] 에러 발생:", error);
+      console.error("[카메라] 에러 이름:", error.name);
+      console.error("[카메라] 에러 메시지:", error.message);
+      
+      // 에러 타입에 따른 메시지
+      let errorMessage = "카메라를 시작할 수 없습니다.";
+      
+      if (error.name === 'NotReadableError') {
+        errorMessage = "카메라가 다른 프로그램에서 사용 중입니다. 다른 앱을 닫고 다시 시도해주세요.";
+      } else if (error.name === 'NotAllowedError') {
+        errorMessage = "카메라 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = "카메라를 찾을 수 없습니다. 연결된 카메라가 있는지 확인해주세요.";
       }
-    } catch (error) {
-      console.error("Camera error:", error);
-      alert("카메라 접근 권한이 필요합니다.");
-      setActiveMethod(null);
+      
+      toast.error(errorMessage + " 파일 업로드를 사용해주세요.");
+      // 에러 발생 시 activeMethod를 유지하여 파일 업로드 사용 가능하도록
+      // setActiveMethod(null); // 제거
     }
   };
 
@@ -219,7 +265,7 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
     setCapturedImage(null);
     setTranscribedText("");
     setExtractedTodoInfo(null);
-    // 카메라 시작은 사용자가 선택하도록 변경
+    // 카메라는 사용자가 촬영 버튼을 누를 때 시작
   };
 
   // 파일 선택 핸들러
@@ -265,19 +311,33 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
   };
 
   const handleCapture = async () => {
-    if (videoRef.current) {
+    if (videoRef.current && stream) {
+      console.log('[캡처] 시작');
+      
+      // 비디오가 준비될 때까지 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('[캡처] video.videoWidth:', videoRef.current.videoWidth);
+      console.log('[캡처] video.videoHeight:', videoRef.current.videoHeight);
+      
       const canvas = document.createElement("canvas");
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
+      
+      console.log('[캡처] canvas.width:', canvas.width);
+      console.log('[캡처] canvas.height:', canvas.height);
+      
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0);
-        const imageUrl = canvas.toDataURL("image/jpeg");
+        const imageUrl = canvas.toDataURL("image/jpeg", 0.95);
+        console.log('[캡처] imageUrl 생성 완료, 길이:', imageUrl.length);
         setCapturedImage(imageUrl);
 
         // Convert to Blob for storage
         canvas.toBlob(async (blob) => {
           if (blob) {
+            console.log('[캡처] Blob 생성 완료, 크기:', blob.size);
             setCurrentImageBlob(blob);
             // 텍스트와 일정 정보 초기화
             setTranscribedText("");
@@ -292,7 +352,7 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
               setExtractionFailed(true);
             }
           }
-        }, 'image/jpeg');
+        }, 'image/jpeg', 0.95);
       }
 
       // Stop stream after capture
@@ -398,7 +458,12 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
   };
 
   const handleRetake = () => {
+    console.log("[카메라] 다시 선택 버튼 클릭");
     setCapturedImage(null);
+    setCurrentImageBlob(null);
+    setTranscribedText("");
+    setExtractedTodoInfo(null);
+    setExtractionFailed(false);
     startCamera();
   };
 
@@ -528,22 +593,99 @@ export function InputMethodModal({ isOpen, onClose, onSelect }: InputMethodModal
           {/* Camera UI */}
           {activeMethod === 'camera' && (
             <div className="w-full bg-white rounded-2xl p-6 mb-4 shadow-sm">
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-full aspect-video bg-[#1F2937] rounded-lg overflow-hidden flex items-center justify-center relative">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+                {/* 디버깅 정보 */}
+                <div style={{ fontSize: '12px', color: '#6B7280', width: '100%', textAlign: 'center' }}>
+                  {capturedImage ? '이미지 캡처됨' : stream ? '카메라 스트림 활성' : '카메라 대기 중'}
+                </div>
+                
+                <div 
+                  style={{ 
+                    width: '100%', 
+                    aspectRatio: '16 / 9',
+                    backgroundColor: '#1F2937',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    display: 'block'
+                  }}
+                >
                   {capturedImage ? (
                     <>
-                      <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+                      <img 
+                        src={capturedImage} 
+                        alt="Captured" 
+                        style={{ 
+                          position: 'absolute',
+                          top: '0',
+                          left: '0',
+                          right: '0',
+                          bottom: '0',
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover',
+                          display: 'block',
+                          margin: '0',
+                          padding: '0'
+                        }}
+                      />
                       {(isUploading || isExtracting) && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                        <div style={{ 
+                          position: 'absolute',
+                          top: '0',
+                          left: '0',
+                          right: '0',
+                          bottom: '0',
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white'
+                        }}>
                           {isUploading ? '텍스트 추출 중...' : '일정 정보 추출 중...'}
                         </div>
                       )}
                     </>
                   ) : stream ? (
-                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      style={{ 
+                        position: 'absolute',
+                        top: '0',
+                        left: '0',
+                        right: '0',
+                        bottom: '0',
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover',
+                        display: 'block',
+                        margin: '0',
+                        padding: '0'
+                      }}
+                      onError={(e) => console.error('[카메라] 비디오 에러:', e)}
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white text-sm">
-                      사진을 첨부해 주세요.
+                    <div style={{ 
+                      position: 'absolute',
+                      top: '0',
+                      left: '0',
+                      right: '0',
+                      bottom: '0',
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: '14px',
+                      gap: '8px'
+                    }}>
+                      <Camera size={48} className="opacity-50" />
+                      <p>카메라를 시작하려면 아래 버튼을 클릭하세요</p>
                     </div>
                   )}
                 </div>

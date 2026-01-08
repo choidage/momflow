@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 class GoogleCalendarService:
     """Google Calendar API 서비스"""
     
-    SCOPES = ['https://www.googleapis.com/auth/calendar']
+    SCOPES = [
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/calendar.readonly'
+    ]
     
     @staticmethod
     def get_credentials_from_token(token_json: str) -> Optional[Credentials]:
