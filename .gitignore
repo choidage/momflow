@@ -28,3 +28,6 @@ __pycache__/
 # System
 .DS_Store
 Thumbs.db
+
+# Separate Projects
+always plan/

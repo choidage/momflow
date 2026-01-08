@@ -6,7 +6,8 @@ param(
     [switch]$Restart
 )
 
-$projectRoot = "C:\Users\USER\OneDrive\Desktop\ainote\momflow"
+# AI18_FINAL 프로젝트 경로 (메인 프로젝트)
+$projectRoot = "C:\Users\USER\OneDrive\Desktop\AI18_FINAL"
 $backendDir = "$projectRoot\backend"
 $frontendDir = "$projectRoot\frontend"
 
